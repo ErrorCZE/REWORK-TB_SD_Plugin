@@ -1,0 +1,254 @@
+{
+	"Name": "Escape from Tarkov Tools",
+	"Version": "1.3.0",
+	"Author": "TarkovBOT.eu",
+	"Category": "Escape from Tarkov Tools",
+	"CategoryIcon": "assets/categoryicon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Tools designed for Escape from Tarkov streamers and regular players. For example Goons Tracker, Trader Restocks and more.",
+	"SDKVersion": 2,
+	"Actions": [
+		{
+			"Name": "GoonsTracker - Latest Report",
+			"UUID": "eu.tarkovbot.tools.goonsgetlocation",
+			"Icon": "assets/actionicon_goons",
+			"Tooltip": "Simply move this action to any button and then press it to retrieve the latest reported location.\nRemember to set up your access token obtained from our website dashboard for this feature to work.",
+			"PropertyInspectorPath": "property-inspector/inspector_goons.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle"
+				}
+			],
+			"Encoder": {
+				"layout": "$B1"
+			},
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Tarkov Time",
+			"UUID": "eu.tarkovbot.tools.tarkovtime",
+			"Icon": "assets/actionicon_time",
+			"Tooltip": "Simply move this action to any button and wait for the time to show.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"Encoder": {
+				"layout": "$B1"
+			},
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Trader Restock Timer",
+			"UUID": "eu.tarkovbot.tools.traderrestock",
+			"Icon": "assets/actionicon_restock",
+			"Tooltip": "Simply move this action to any button and wait for the time to show.",
+			"PropertyInspectorPath": "property-inspector/inspector_traderrestock.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "11"
+				}
+			],
+			"Encoder": {
+				"layout": "$B1"
+			},
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Current Map Info",
+			"UUID": "eu.tarkovbot.tools.mapinfo",
+			"Icon": "assets/actionicon_mapinfo",
+			"Tooltip": "Displays current map information.",
+			"PropertyInspectorPath": "property-inspector/inspector_mapinfo.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false
+		},
+		{
+			"Name": "Map Info - Name",
+			"UUID": "eu.tarkovbot.tools.mapinfo.name",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Raid Duration",
+			"UUID": "eu.tarkovbot.tools.mapinfo.raidduration",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Player Count",
+			"UUID": "eu.tarkovbot.tools.mapinfo.playercount",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Main Profile Btn",
+			"UUID": "eu.tarkovbot.tools.mapinfo.mainprofile",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Next Page Btn",
+			"UUID": "eu.tarkovbot.tools.mapinfo.nextpage",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Previous Page Btn",
+			"UUID": "eu.tarkovbot.tools.mapinfo.previouspage",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "13"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		}
+	],
+	"Profiles": [
+		{
+			"Name": "Map Info XL",
+			"DeviceType": 0,
+			"Readonly": true,
+			"DontAutoSwitchWhenInstalled": true
+		},
+		{
+			"Name": "Map Info XL",
+			"DeviceType": 1,
+			"Readonly": true,
+			"DontAutoSwitchWhenInstalled": true
+		},
+		{
+			"Name": "Map Info XL",
+			"DeviceType": 2,
+			"Readonly": true,
+			"DontAutoSwitchWhenInstalled": true
+		},
+		{
+			"Name": "Map Info XL",
+			"DeviceType": 3,
+			"Readonly": true,
+			"DontAutoSwitchWhenInstalled": true
+		}
+	],
+	"Software": {
+		"MinimumVersion": "6.4"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "10.15"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "eu.tarkovbot.tools"
+}

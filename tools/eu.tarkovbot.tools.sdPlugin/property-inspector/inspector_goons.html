@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>GOONS</title>
+    <meta charset="utf-8" />
+    <script src="https://sdpi-components.dev/releases/v3/sdpi-components.js"></script>
+</head>
+
+<body>
+    <div class="sdpi-wrapper">
+        <hr class="tab-separator">
+        <form id="property-inspector">
+            <div id="tab1" class="tab-container">
+                <div class="sdpi-item" id="selectedGoonsSource">
+                    <div class="sdpi-item-label">Source</div>
+                    <select class="sdpi-item-value select" name="selectedGoonsSource" id="selectedGoonsSource">
+                        <option value="NEW">Newest (PVP + PVE)</option>
+                        <option value="PVP">PVP Only</option>
+                        <option value="PVE">PVE Only</option>
+                    </select>
+                </div>
+
+                <div class="sdpi-item">
+                    <div data-localize class="sdpi-item-label" title="My name">Access Token</div>
+                    <input data-localize class="sdpi-item-value" name="token" type="text" value=""
+                        placeholder="Your Token" />      
+                </div>
+            </div>
+        </form>
+
+        <div class="sdpi-item">
+            <p><b style="color:orange">To access this feature, please enter your token above.</b> Tokens can be obtained by logging into our website and navigating to the dashboard. From there, go to the StreamDeck section.</p>
+        </div>
+        <div class="sdpi-item">
+            <a href="https://tarkovbot.eu/stream-deck" target="_blank">More information</a>
+        </div>
+    </div>
+</body>
+
+</html>
