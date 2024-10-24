@@ -25,11 +25,17 @@ const apiURL_PVP = "https://tarkovbot.eu/api/trader-resets/";
 let data_PVE: TraderData[] = [];
 let data_PVP: TraderData[] = [];
 
+interface ApiResponse {
+    data: {
+        traders: TraderData[];
+    }
+}
+
 async function refreshDataPVE(): Promise<void> {
     try {
         const response = await fetch(apiURL_PVE);
         const jsonData = await response.json();
-        data_PVE = jsonData.data.traders;
+        data_PVE = (jsonData as ApiResponse).data.traders;
     } catch (error) {
         console.error("Error fetching PVE data:", error);
         data_PVE = [];
@@ -40,7 +46,7 @@ async function refreshDataPVP(): Promise<void> {
     try {
         const response = await fetch(apiURL_PVP);
         const jsonData = await response.json();
-        data_PVP = jsonData.data.traders;
+        data_PVP = (jsonData as ApiResponse).data.traders;
     } catch (error) {
         console.error("Error fetching PVP data:", error);
         data_PVP = [];
@@ -77,7 +83,7 @@ export class TarkovTraderRestock extends SingletonAction {
     }
 
     private async startUpdating(action: any, settings: TraderSettings): Promise<void> {
-        this.stopUpdating(); // Ensure any previous intervals are cleared
+        this.stopUpdating();
 
         if (settings.pve_traders_mode_check && (!Array.isArray(data_PVE) || data_PVE.length === 0)) {
             await refreshDataPVE();
@@ -85,7 +91,7 @@ export class TarkovTraderRestock extends SingletonAction {
             await refreshDataPVP();
         }
 
-        // Start the interval to update the trader's restock timer
+
         this.updateInterval = setInterval(() => {
             const trader = settings.selectedTrader;
             const pveMode = settings.pve_traders_mode_check;
@@ -143,7 +149,7 @@ export class TarkovTraderRestock extends SingletonAction {
 
         ev.action.setTitle(`\n\n\nLoading`);
 
-        // Stop any existing updates before changing trader
+
         this.stopUpdating();
 
         if (!settings.selectedTrader) {
@@ -153,6 +159,6 @@ export class TarkovTraderRestock extends SingletonAction {
         }
 
         ev.action.setImage(`assets/${settings.selectedTrader}.png`);
-        this.startUpdating(ev.action, settings); // Start updating for the new trader
+        this.startUpdating(ev.action, settings);
     }
 }

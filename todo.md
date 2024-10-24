@@ -1,0 +1,1 @@
+- Tradeři jsou občas bugged - jen jeden jede, ostatní mají Loading
