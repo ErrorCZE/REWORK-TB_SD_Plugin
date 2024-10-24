@@ -26,10 +26,8 @@ export class TarkovTime extends SingletonAction {
             ev.action.setTitle(`${tarkovTimeLeft}\n${tarkovTimeRight}`);
         };
 
-        // Run the function every 2 seconds
         this.updateInterval = setInterval(updateTarkovTime, 2000);
 
-        // Run it immediately as well
         updateTarkovTime();
     }
 }
