@@ -17,8 +17,6 @@ interface TraderSettings extends JsonObject {
     pve_traders_mode_check?: boolean;
 }
 
-
-
 const apiURL_PVE = "https://tarkovbot.eu/api/pve/trader-resets/";
 const apiURL_PVP = "https://tarkovbot.eu/api/trader-resets/";
 
@@ -72,7 +70,7 @@ export class TarkovTraderRestock extends SingletonAction {
         const currentTime = new Date();
         const timeDifference = resetTime.getTime() - currentTime.getTime();
 
-        if (timeDifference > 0) {
+        if (timeDifference >= 0) {
             const hours = String(Math.floor(timeDifference / (1000 * 60 * 60))).padStart(2, '0');
             const minutes = String(Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
             const seconds = String(Math.floor((timeDifference % (1000 * 60)) / 1000)).padStart(2, '0');
@@ -90,7 +88,6 @@ export class TarkovTraderRestock extends SingletonAction {
         } else if (!settings.pve_traders_mode_check && (!Array.isArray(data_PVP) || data_PVP.length === 0)) {
             await refreshDataPVP();
         }
-
 
         this.updateInterval = setInterval(() => {
             const trader = settings.selectedTrader;
@@ -129,7 +126,9 @@ export class TarkovTraderRestock extends SingletonAction {
     override onWillAppear(ev: WillAppearEvent<TraderSettings>): void {
         const settings = ev.payload.settings;
 
-        ev.action.setTitle(`\n\n\nLoading`);
+        if (!this.updateInterval) { 
+            ev.action.setTitle(`\n\n\nLoading`);
+        }
 
         if (!settings.selectedTrader) {
             ev.action.setTitle("Select\nTrader");
@@ -140,17 +139,16 @@ export class TarkovTraderRestock extends SingletonAction {
         this.startUpdating(ev.action, settings);
     }
 
-    override onWillDisappear(ev: WillDisappearEvent): void {
+    override onWillDisappear(ev: WillDisappearEvent<TraderSettings>): void {
         this.stopUpdating();
     }
 
     override onDidReceiveSettings(ev: DidReceiveSettingsEvent<TraderSettings>): void {
+        this.stopUpdating();
+
         const settings = ev.payload.settings;
 
         ev.action.setTitle(`\n\n\nLoading`);
-
-
-        this.stopUpdating();
 
         if (!settings.selectedTrader) {
             ev.action.setTitle("Select\nTrader");

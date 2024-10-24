@@ -1,1 +1,1 @@
-- Tradeři jsou občas bugged - jen jeden jede, ostatní mají Loading
+- Trader se bugne při onwillapear když je po restocku (negativní čas) a je tím pádem zaseknutý na "Loading" namísto textu "Restock"
