@@ -8,17 +8,9 @@
 </head>
 
 <body>
-    <div class="sdpi-wrapper">
-		<hr class="tab-separator">
-		<form id="property-inspector">
-			<div id="tab1" class="tab-container">
-				<div class="sdpi-item">
-					<div data-localize class="sdpi-item-label" title="My name">EFT Path</div>
-					<input data-localize class="sdpi-item-value" name="eftInstallPath" type="text" value="C:\Battlestate Games\EFT" placeholder="C:\Battlestate Games\EFT" />
-				</div>
-			</div>
-		</form>
-	</div>
+    <sdpi-item label="EFT Path">
+        <sdpi-textfield setting="eftInstallPath"></sdpi-textfield>
+    </sdpi-item>
 </body>
 
 </html>

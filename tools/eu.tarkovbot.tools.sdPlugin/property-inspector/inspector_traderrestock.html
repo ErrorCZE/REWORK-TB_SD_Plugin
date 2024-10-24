@@ -8,35 +8,23 @@
 </head>
 
 <body>
-    <div class="sdpi-wrapper">
-        <hr class="tab-separator">
-        <form id="property-inspector">
-            <div class="sdpi-item" id="selectedTrader">
-                <div class="sdpi-item-label">Select</div>
-                <select class="sdpi-item-value select" name="selectedTrader" id="selectedTrader">
-                    <option value=""></option>
-                    <option value="Prapor">Prapor</option>
-                    <option value="Therapist">Therapist</option>
-                    <option value="Fence">Fence</option>
-                    <option value="Skier">Skier</option>
-                    <option value="Peacekeeper">Peacekeeper</option>
-                    <option value="Mechanic">Mechanic</option>
-                    <option value="Ragman">Ragman</option>
-                    <option value="Jaeger">Jaeger</option>
-                    <option value="Ref">Ref</option>
-                </select>
-            </div>
+    <sdpi-item label="Source">
+        <sdpi-select setting="selectedGoonsSource" placeholder="Select Trader">
+            <option value="Prapor">Prapor</option>
+            <option value="Therapist">Therapist</option>
+            <option value="Fence">Fence</option>
+            <option value="Skier">Skier</option>
+            <option value="Peacekeeper">Peacekeeper</option>
+            <option value="Mechanic">Mechanic</option>
+            <option value="Ragman">Ragman</option>
+            <option value="Jaeger">Jaeger</option>
+            <option value="Ref">Ref</option>
+        </sdpi-select>
+    </sdpi-item>
 
-            <div type="checkbox" class="sdpi-item" id="pve_traders_mode">
-                <div class="sdpi-item-label">PVE Mode</div>
-                <div class="sdpi-item-child">
-                    <input class="sdpi-item-value" name="pve_traders_mode_check" id="pve_traders_mode_check" type="checkbox">
-                    <label for="pve_traders_mode_check" class="sdpi-item-label"><span></span></label>
-                </div>
-            </div>
-
-        </form>
-    </div>
+    <sdpi-item label="PVE Mode">
+        <sdpi-checkbox setting="pve_traders_mode_check"></sdpi-checkbox>
+    </sdpi-item>
 </body>
 
 </html>
