@@ -17,17 +17,17 @@ interface TraderSettings extends JsonObject {
     pve_traders_mode_check?: boolean;
 }
 
-const apiURL_PVE = "https://tarkovbot.eu/api/pve/trader-resets/";
-const apiURL_PVP = "https://tarkovbot.eu/api/trader-resets/";
-
-let data_PVE: TraderData[] = [];
-let data_PVP: TraderData[] = [];
-
 interface ApiResponse {
     data: {
         traders: TraderData[];
     }
 }
+
+const apiURL_PVE = "https://tarkovbot.eu/api/pve/trader-resets/";
+const apiURL_PVP = "https://tarkovbot.eu/api/trader-resets/";
+
+let data_PVE: TraderData[] = [];
+let data_PVP: TraderData[] = [];
 
 async function refreshDataPVE(): Promise<void> {
     try {
@@ -58,7 +58,7 @@ setInterval(refreshDataPVE, 900000);
 
 @action({ UUID: "eu.tarkovbot.tools.traderrestock" })
 export class TarkovTraderRestock extends SingletonAction {
-    private updateInterval: NodeJS.Timeout | null = null;
+    private updateIntervals = new Map<string, NodeJS.Timeout>();
 
     private updateTitleAndImage(action: any, restockData?: TraderData): void {
         if (!restockData) {
@@ -80,16 +80,20 @@ export class TarkovTraderRestock extends SingletonAction {
         }
     }
 
-    private async startUpdating(action: any, settings: TraderSettings): Promise<void> {
-        this.stopUpdating();
+    private async startUpdating(action: any, settings: TraderSettings, actionId: string): Promise<void> {
+        // Clear existing interval for this action
+        this.stopUpdating(actionId);
 
+        action.setTitle("\n\n\nLoading");
+
+        // Wait for data to be refreshed if it's empty
         if (settings.pve_traders_mode_check && (!Array.isArray(data_PVE) || data_PVE.length === 0)) {
             await refreshDataPVE();
         } else if (!settings.pve_traders_mode_check && (!Array.isArray(data_PVP) || data_PVP.length === 0)) {
             await refreshDataPVP();
         }
 
-        this.updateInterval = setInterval(() => {
+        const intervalId = setInterval(() => {
             const trader = settings.selectedTrader;
             const pveMode = settings.pve_traders_mode_check;
 
@@ -100,7 +104,7 @@ export class TarkovTraderRestock extends SingletonAction {
 
             const traderData = pveMode ? data_PVE : data_PVP;
 
-            if (!Array.isArray(traderData)) {
+            if (!Array.isArray(traderData) || traderData.length === 0) {
                 action.setTitle("\n\n\nNo Data");
                 return;
             }
@@ -114,21 +118,21 @@ export class TarkovTraderRestock extends SingletonAction {
 
             this.updateTitleAndImage(action, restockData);
         }, 1000);
+
+        this.updateIntervals.set(actionId, intervalId);
     }
 
-    private stopUpdating(): void {
-        if (this.updateInterval) {
-            clearInterval(this.updateInterval);
-            this.updateInterval = null;
+    private stopUpdating(actionId: string): void {
+        const intervalId = this.updateIntervals.get(actionId);
+        if (intervalId) {
+            clearInterval(intervalId);
+            this.updateIntervals.delete(actionId);
         }
     }
 
-    override onWillAppear(ev: WillAppearEvent<TraderSettings>): void {
+    override onWillAppear(ev: WillAppearEvent<TraderSettings>): void | Promise<void> {
         const settings = ev.payload.settings;
-
-        if (!this.updateInterval) { 
-            ev.action.setTitle(`\n\n\nLoading`);
-        }
+        const actionId = ev.action.id;
 
         if (!settings.selectedTrader) {
             ev.action.setTitle("Select\nTrader");
@@ -136,19 +140,19 @@ export class TarkovTraderRestock extends SingletonAction {
         }
 
         ev.action.setImage(`assets/${settings.selectedTrader}.png`);
-        this.startUpdating(ev.action, settings);
+        this.startUpdating(ev.action, settings, actionId);
     }
 
-    override onWillDisappear(ev: WillDisappearEvent<TraderSettings>): void {
-        this.stopUpdating();
+    override onWillDisappear(ev: WillDisappearEvent<TraderSettings>): void | Promise<void> {
+        this.stopUpdating(ev.action.id);
     }
 
-    override onDidReceiveSettings(ev: DidReceiveSettingsEvent<TraderSettings>): void {
-        this.stopUpdating();
-
+    override onDidReceiveSettings(ev: DidReceiveSettingsEvent<TraderSettings>): void | Promise<void> {
         const settings = ev.payload.settings;
+        const actionId = ev.action.id;
 
-        ev.action.setTitle(`\n\n\nLoading`);
+        // Stop existing updates
+        this.stopUpdating(actionId);
 
         if (!settings.selectedTrader) {
             ev.action.setTitle("Select\nTrader");
@@ -157,6 +161,6 @@ export class TarkovTraderRestock extends SingletonAction {
         }
 
         ev.action.setImage(`assets/${settings.selectedTrader}.png`);
-        this.startUpdating(ev.action, settings);
+        this.startUpdating(ev.action, settings, actionId);
     }
 }
