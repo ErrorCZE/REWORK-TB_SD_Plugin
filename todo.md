@@ -1,1 +1,0 @@
-- Trader se bugne při onwillapear když je po restocku (negativní čas) a je tím pádem zaseknutý na "Loading" namísto textu "Restock"

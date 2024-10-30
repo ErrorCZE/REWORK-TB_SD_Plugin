@@ -20,7 +20,8 @@
 			"States": [
 				{
 					"Image": "assets/empty_image",
-					"TitleAlignment": "middle"
+					"TitleAlignment": "middle",
+					"FontSize": "9"
 				}
 			],
 			"Encoder": {
@@ -82,7 +83,7 @@
 				{
 					"Image": "assets/empty_image",
 					"TitleAlignment": "middle",
-					"FontSize": "11"
+					"FontSize": "9"
 				}
 			],
 			"UserTitleEnabled": false

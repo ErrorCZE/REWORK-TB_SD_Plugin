@@ -151,7 +151,6 @@ export class TarkovTraderRestock extends SingletonAction {
         const settings = ev.payload.settings;
         const actionId = ev.action.id;
 
-        // Stop existing updates
         this.stopUpdating(actionId);
 
         if (!settings.selectedTrader) {
