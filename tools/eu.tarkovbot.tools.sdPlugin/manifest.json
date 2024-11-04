@@ -98,7 +98,7 @@
 				{
 					"Image": "assets/empty_image",
 					"TitleAlignment": "middle",
-					"FontSize": "13"
+					"FontSize": "9"
 				}
 			],
 			"UserTitleEnabled": false,
@@ -115,7 +115,7 @@
 				{
 					"Image": "assets/empty_image",
 					"TitleAlignment": "middle",
-					"FontSize": "13"
+					"FontSize": "9"
 				}
 			],
 			"UserTitleEnabled": false,
@@ -132,7 +132,7 @@
 				{
 					"Image": "assets/empty_image",
 					"TitleAlignment": "middle",
-					"FontSize": "13"
+					"FontSize": "9"
 				}
 			],
 			"UserTitleEnabled": false,
@@ -149,7 +149,7 @@
 				{
 					"Image": "assets/empty_image",
 					"TitleAlignment": "middle",
-					"FontSize": "13"
+					"FontSize": "9"
 				}
 			],
 			"UserTitleEnabled": false,

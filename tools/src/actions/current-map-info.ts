@@ -1,4 +1,5 @@
 import {
+    streamDeck,
     action,
     SingletonAction,
     WillAppearEvent,
@@ -9,10 +10,78 @@ import {
 } from "@elgato/streamdeck";
 import fs from "fs";
 
+interface BossHealth {
+    bodyPart: string;
+    max: number;
+}
+
+interface Boss {
+    id: string;
+    name: string;
+    health: BossHealth[];
+}
+
+interface MapData {
+    id: string;
+    name: string;
+    nameId: string;
+    accessKeysMinPlayerLevel: number;
+    raidDuration: number;
+    players: string;
+    accessKeys: any[];
+    bosses: Boss[];
+}
+
+// Update ApiResponse to reflect the actual response structure
+interface ApiResponse {
+    maps: MapData[];
+}
+
+const apiURL_PVE = "https://tarkovbot.eu/api/pve/bosses";
+const apiURL_PVP = "https://tarkovbot.eu/api/bosses";
+
+// Update data for PVE
+async function refreshDataPVE(): Promise<void> {
+    try {
+        const response = await fetch(apiURL_PVE);
+        const jsonData = await response.json();
+
+        if (isApiResponse(jsonData)) {
+            globalThis.locationsDataPVE = jsonData.maps;
+        }
+    } catch (error) {
+        streamDeck.logger.info("Error fetching PVE data:", error);
+    }
+}
+
+// Update data for PVP
+async function refreshDataPVP(): Promise<void> {
+    try {
+        const response = await fetch(apiURL_PVP);
+        const jsonData = await response.json();
+
+        if (isApiResponse(jsonData)) {
+            globalThis.locationsDataPVP = jsonData.maps;
+        }
+    } catch (error) {
+        streamDeck.logger.info("Error fetching PVP data:", error);
+    }
+}
 
 
-const apiURL = "https://tarkovbot.eu/api/bosses";
-//! Backend - Přidat PVE endpoint
+// Type Guard for ApiResponse
+function isApiResponse(data: any): data is ApiResponse {
+    return (
+        data &&
+        typeof data === 'object' &&
+        Array.isArray(data.maps)
+    );
+}
+
+refreshDataPVE();
+//refreshDataPVP();
+
+
 
 @action({ UUID: "eu.tarkovbot.tools.mapinfo" })
 export class TarkovCurrentMapInfo extends SingletonAction {
@@ -22,16 +91,17 @@ export class TarkovCurrentMapInfo extends SingletonAction {
     };
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-        const location = await this.getLatestMap();
-        if (location) {
-            ev.action.setTitle(location.toLowerCase());
+        globalThis.location = await this.getLatestMap();
+        if (globalThis.location) {
+            ev.action.setTitle(globalThis.location.toLowerCase());
+            streamDeck.profiles.switchToProfile(ev.action.device.id, "Map Info XL");
         } else {
             ev.action.setTitle("Not\nFound");
         }
     }
 
     private async getLatestMap(): Promise<string | null> {
-        const logsPath = "C:\\Battlestate Games\\EFT\\Logs"; //TODO: Přidat settings možnost pro vlastní cestu, tohle použít jako default, když si nic nezadá
+        const logsPath = "C:\\Battlestate Games\\EFT\\Logs"; //TODO: Přidat settings možnost pro vlastní cestu, tohle použít jako default
 
         const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
         const logFolders = folders
@@ -42,7 +112,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             const latestFolder = `${logsPath}\\${folder.name}`;
             const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
             const logFiles = files
-                .filter(f => f.isFile() && f.name.endsWith(".log"))
+                .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
                 .sort((a, b) => b.name.localeCompare(a.name));
 
             for (const file of logFiles) {

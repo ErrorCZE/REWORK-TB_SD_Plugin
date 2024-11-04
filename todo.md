@@ -1,0 +1,1 @@
+- U goons lokace přidat info pro získání tokenu
