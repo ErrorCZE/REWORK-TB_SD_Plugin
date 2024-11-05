@@ -6,6 +6,7 @@ import { TarkovTraderRestock } from "./actions/trader-restock";
 import { TarkovCurrentMapInfo } from "./actions/current-map-info";
 import { TarkovCurrentMapInfo_Name } from "./actions/current-map-name";
 import { TarkovCurrentMapInfo_Duration } from "./actions/current-map-duration";
+import { TarkovCurrentMapInfo_Players } from "./actions/current-map-players";
 
 
 
@@ -18,6 +19,6 @@ streamDeck.actions.registerAction(new TarkovTraderRestock());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Name());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Duration());
-
+streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Players());
 
 streamDeck.connect();

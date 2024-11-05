@@ -96,7 +96,7 @@
 			],
 			"States": [
 				{
-					"Image": "assets/empty_image",
+					"Image": "assets/mapinfo_mapname",
 					"TitleAlignment": "middle",
 					"FontSize": "9"
 				}
@@ -113,7 +113,7 @@
 			],
 			"States": [
 				{
-					"Image": "assets/empty_image",
+					"Image": "assets/mapinfo_mapduration",
 					"TitleAlignment": "middle",
 					"FontSize": "9"
 				}
@@ -130,7 +130,7 @@
 			],
 			"States": [
 				{
-					"Image": "assets/empty_image",
+					"Image": "assets/mapinfo_playercount",
 					"TitleAlignment": "middle",
 					"FontSize": "9"
 				}

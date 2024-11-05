@@ -13,12 +13,12 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
         if (locationId) {
             const mapData = globalThis.locationsDataPVE?.find(map => map.nameId === locationId);
             if (mapData) {
-                ev.action.setTitle(mapData.name);
+                ev.action.setTitle(`\n${mapData.name}`);
             } else {
-                ev.action.setTitle("No\nMap\nData");
+                ev.action.setTitle("\nNo Map\nData");
             }
         } else {
-            ev.action.setTitle("Unknown\nLocation");
+            ev.action.setTitle("\nUnknown\nLocation");
         }
     }
 }
