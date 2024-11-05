@@ -47,13 +47,46 @@ async function refreshDataPVE(): Promise<void> {
         const jsonData = await response.json();
 
         if (isApiResponse(jsonData)) {
-            globalThis.locationsDataPVE = jsonData.maps;
+            globalThis.locationsDataPVE = jsonData.maps.map(map => {
+                const consolidatedBosses: { name: string; spawnChance: string }[] = [];
+                const bossMap = new Map<string, number[]>(); // Map to track spawn chances for each boss
+
+                // Iterate through each boss to consolidate
+                map.bosses.forEach(bossData => {
+                    const bossName = bossData.boss.name;
+                    const spawnChance = bossData.spawnChance;
+
+                    if (!bossMap.has(bossName)) {
+                        bossMap.set(bossName, []); // Initialize if not present
+                    }
+                    bossMap.get(bossName)!.push(spawnChance);
+                });
+
+                // Now map the consolidated data
+                bossMap.forEach((spawnChances, name) => {
+                    const lowest = Math.min(...spawnChances);
+                    const highest = Math.max(...spawnChances);
+                    const spawnChanceString = spawnChances.length > 1 ? `${lowest}-${highest}` : `${lowest}`;
+                    consolidatedBosses.push({ name, spawnChance: spawnChanceString });
+                });
+
+                return {
+                    ...map,
+                    bosses: consolidatedBosses
+                };
+            });
+
+            streamDeck.logger.info("Processed PVE Map Data:", globalThis.locationsDataPVE);
         }
     } catch (error) {
         streamDeck.logger.info("Error fetching PVE data:", error);
     }
 }
 
+
+
+
+// Update data for PVP
 // Update data for PVP
 async function refreshDataPVP(): Promise<void> {
     try {
@@ -61,12 +94,42 @@ async function refreshDataPVP(): Promise<void> {
         const jsonData = await response.json();
 
         if (isApiResponse(jsonData)) {
-            globalThis.locationsDataPVP = jsonData.maps;
+            globalThis.locationsDataPVP = jsonData.maps.map(map => {
+                const consolidatedBosses: { name: string; spawnChance: string }[] = [];
+                const bossMap = new Map<string, number[]>(); // Map to track spawn chances for each boss
+
+                // Iterate through each boss to consolidate
+                map.bosses.forEach(bossData => {
+                    const bossName = bossData.boss.name;
+                    const spawnChance = bossData.spawnChance;
+
+                    if (!bossMap.has(bossName)) {
+                        bossMap.set(bossName, []); // Initialize if not present
+                    }
+                    bossMap.get(bossName)!.push(spawnChance);
+                });
+
+                // Now map the consolidated data
+                bossMap.forEach((spawnChances, name) => {
+                    const lowest = Math.min(...spawnChances);
+                    const highest = Math.max(...spawnChances);
+                    const spawnChanceString = spawnChances.length > 1 ? `${lowest}-${highest}` : `${lowest}`;
+                    consolidatedBosses.push({ name, spawnChance: spawnChanceString });
+                });
+
+                return {
+                    ...map,
+                    bosses: consolidatedBosses
+                };
+            });
+
+            streamDeck.logger.info("Processed PVP Map Data:", globalThis.locationsDataPVP);
         }
     } catch (error) {
         streamDeck.logger.info("Error fetching PVP data:", error);
     }
 }
+
 
 
 // Type Guard for ApiResponse

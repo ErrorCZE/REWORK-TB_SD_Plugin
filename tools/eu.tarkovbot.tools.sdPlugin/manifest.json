@@ -140,8 +140,8 @@
 			"SupportedInMultiActions": false
 		},
 		{
-			"Name": "Map Info - Boss Info",
-			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo",
+			"Name": "Map Info - Boss Info [0]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo0",
 			"Controllers": [
 				"Keypad"
 			],
@@ -156,6 +156,261 @@
 			"VisibleInActionsList": true,
 			"SupportedInMultiActions": false
 		},
+		{
+			"Name": "Map Info - Boss Info [1]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo1",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [2]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo2",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [3]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo3",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [4]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo4",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [5]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo5",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [6]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo6",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [7]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo7",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [8]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo8",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [9]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo9",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},	
+		{
+			"Name": "Map Info - Boss Info [10]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo10",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [11]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo11",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [12]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo12",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [13]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo13",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [14]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo14",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
+			"Name": "Map Info - Boss Info [15]",
+			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo15",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": "9"
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},		
 		{
 			"Name": "Map Info - Main Profile Btn",
 			"UUID": "eu.tarkovbot.tools.mapinfo.mainprofile",
