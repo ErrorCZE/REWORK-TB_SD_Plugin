@@ -48,28 +48,32 @@ async function refreshDataPVE(): Promise<void> {
 
         if (isApiResponse(jsonData)) {
             globalThis.locationsDataPVE = jsonData.maps.map(map => {
-                const consolidatedBosses: { name: string; spawnChance: string }[] = [];
-                const bossMap = new Map<string, number[]>(); // Map to track spawn chances for each boss
+                const consolidatedBosses: { name: string; spawnChance: string; id: string }[] = [];
+                const bossMap = new Map<string, { id: string; spawnChances: number[] }>(); // Map to track spawn chances and ids for each boss
 
                 // Iterate through each boss to consolidate
                 map.bosses.forEach(bossData => {
                     const bossName = bossData.boss.name;
+                    const bossId = bossData.boss.id;
                     const spawnChance = bossData.spawnChance;
 
                     if (!bossMap.has(bossName)) {
-                        bossMap.set(bossName, []); // Initialize if not present
+                        bossMap.set(bossName, { id: bossId, spawnChances: [] }); // Initialize if not present
                     }
-                    bossMap.get(bossName)!.push(spawnChance);
+                    bossMap.get(bossName)!.spawnChances.push(spawnChance);
                 });
 
                 // Now map the consolidated data
-                bossMap.forEach((spawnChances, name) => {
+                bossMap.forEach(({ id, spawnChances }, name) => {
                     const lowest = Math.min(...spawnChances);
                     const highest = Math.max(...spawnChances);
-                    const spawnChanceString = spawnChances.length > 1 ? `${lowest}-${highest}` : `${lowest}`;
-                    consolidatedBosses.push({ name, spawnChance: spawnChanceString });
+                    
+                    // If lowest and highest are the same, just use the lowest value
+                    const spawnChanceString = lowest === highest ? `${lowest}` : `${lowest}-${highest}`;
+                    
+                    consolidatedBosses.push({ name, spawnChance: spawnChanceString, id }); // Include the id in the final structure
                 });
-
+                
                 return {
                     ...map,
                     bosses: consolidatedBosses
@@ -86,7 +90,7 @@ async function refreshDataPVE(): Promise<void> {
 
 
 
-// Update data for PVP
+
 // Update data for PVP
 async function refreshDataPVP(): Promise<void> {
     try {
