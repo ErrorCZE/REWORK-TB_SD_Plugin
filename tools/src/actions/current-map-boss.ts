@@ -26,11 +26,11 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
                     const bossNameFormatted = bossNameWords.join("\n");
 
                     if (bossNameWords.length === 1) {
-                        ev.action.setTitle(`\n${bossNameFormatted}\n\n${boss.spawnChance*100}%`);
+                        ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
                     } else if (bossNameWords.length === 2) {
-                        ev.action.setTitle(`${bossNameFormatted}\n\n${boss.spawnChance*100}%`);
+                        ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
                     } else {
-                        ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance*100}%`);
+                        ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
                     }
 
                     const imageUrl = `https://tarkovbot.eu/streamdeck/img/${boss.id}.webp`;
@@ -41,8 +41,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
                         ev.action.setImage(base64Image);
                     }
                 }
-            } else {
-                ev.action.setTitle("\nNo Map\nData");
             }
         }
     }
@@ -59,7 +57,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
             const base64String = Buffer.from(arrayBuffer).toString('base64');
             return `data:image/webp;base64,${base64String}`;
         } catch (error) {
-            console.error("Failed to fetch and convert image to Base64:", error);
+            streamDeck.logger.info("Failed to fetch and convert image to Base64:", error);
             return null;
         }
     }

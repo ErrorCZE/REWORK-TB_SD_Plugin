@@ -55,7 +55,7 @@ async function refreshDataPVE(): Promise<void> {
                 map.bosses.forEach(bossData => {
                     const bossName = bossData.boss.name;
                     const bossId = bossData.boss.id;
-                    const spawnChance = bossData.spawnChance;
+                    const spawnChance = bossData.spawnChance * 100; // Convert to percentage
 
                     if (!bossMap.has(bossName)) {
                         bossMap.set(bossName, { id: bossId, spawnChances: [] }); // Initialize if not present
@@ -69,7 +69,7 @@ async function refreshDataPVE(): Promise<void> {
                     const highest = Math.max(...spawnChances);
                     
                     // If lowest and highest are the same, just use the lowest value
-                    const spawnChanceString = lowest === highest ? `${lowest}` : `${lowest}-${highest}`;
+                    const spawnChanceString = lowest === highest ? `${lowest}%` : `${lowest}-${highest}%`;
                     
                     consolidatedBosses.push({ name, spawnChance: spawnChanceString, id }); // Include the id in the final structure
                 });
