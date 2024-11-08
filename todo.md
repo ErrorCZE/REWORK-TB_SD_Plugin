@@ -1,3 +1,1 @@
-- U goons lokace přidat info pro získání tokenu
-- U bossů zobrazit % jako *100
-- U bossů fixnout zobrazení min-max spawn hodnoty, když je stejná, tak zobrazit pouze jednou a ne x-y
+- U mapy přidat možnost nastavit si vlastní cestu do EFT pro logy
