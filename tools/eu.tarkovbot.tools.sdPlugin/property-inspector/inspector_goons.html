@@ -19,6 +19,16 @@
     <sdpi-item label="Access Token">
         <sdpi-textfield setting="token"></sdpi-textfield>
     </sdpi-item>
+
+    <sdpi-item>
+        <b style="color:orange;font-size:13px">Enter your token above to access this feature.</b>
+        <span style="color:white;font-size:13px">Get your token from the StreamDeck section in your dashboard on our website.</span>
+    </sdpi-item>
+    
+    <sdpi-item>
+        <sdpi-button onclick="SDPIComponents.streamDeckClient.send('sendToPlugin', 'openWebsite');">More info & Website</sdpi-button>
+    </sdpi-item>
+    
 </body>
 
 </html>

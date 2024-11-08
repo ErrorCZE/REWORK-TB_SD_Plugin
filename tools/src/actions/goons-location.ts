@@ -1,4 +1,4 @@
-import { action, KeyDownEvent, SingletonAction, WillAppearEvent } from "@elgato/streamdeck";
+import { action, streamDeck, KeyDownEvent, SingletonAction, WillAppearEvent, SendToPluginEvent } from "@elgato/streamdeck";
 
 const apiURL = "https://tarkovbot.eu/api/streamdeck/goonslocation";
 
@@ -73,5 +73,10 @@ export class TarkovGoonsLocation extends SingletonAction {
         }
     }
 
+    override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, LaunchSettings>): void | Promise<void> {
+        if (ev.payload === 'openWebsite') {
+            streamDeck.system.openUrl('https://tarkovbot.eu/stream-deck');
+        }
+    }
 }
 
