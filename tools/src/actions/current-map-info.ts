@@ -163,7 +163,6 @@ export class TarkovCurrentMapInfo extends SingletonAction {
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
         globalThis.location = await this.getLatestMap();
         if (globalThis.location) {
-            ev.action.setTitle(globalThis.location.toLowerCase());
             streamDeck.profiles.switchToProfile(ev.action.device.id, "Map Info XL");
         } else {
             ev.action.setTitle("Not\nFound");
@@ -171,7 +170,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
     }
 
     private async getLatestMap(): Promise<string | null> {
-        const logsPath = "C:\\Battlestate Games\\EFT\\Logs"; //TODO: Přidat settings možnost pro vlastní cestu, tohle použít jako default
+        const logsPath = "D:\\EscapefromTarkov"; //TODO: Přidat settings možnost pro vlastní cestu, tohle použít jako default
 
         const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
         const logFolders = folders
