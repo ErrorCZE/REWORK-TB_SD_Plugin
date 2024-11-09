@@ -201,5 +201,10 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         return null;
     }
 
+    override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void | Promise<void> { 
+        const { pve_map_mode_check } = ev.payload.settings;
+        globalThis.pve_map_mode_check = pve_map_mode_check;
+    };
+
 }
 

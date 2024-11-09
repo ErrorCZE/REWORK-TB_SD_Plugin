@@ -15,27 +15,31 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
     }
 
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+        const pveMode = globalThis.pve_map_mode_check; 
         const locationId = globalThis.location;
         ev.action.setTitle("");
+        ev.action.setImage("");
+    
         if (locationId) {
-            const mapData = globalThis.locationsDataPVE?.find(map => map.nameId === locationId);
+            // Select PvE or PvP data based on the pveMode value
+            const mapData = pveMode
+                ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
+                : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+    
             if (mapData) {
                 const boss = mapData.bosses[this.bossIndex];
                 if (boss) {
                     const bossNameWords = boss.name.split(" ");
                     const bossNameFormatted = bossNameWords.join("\n");
-
-                    if (bossNameWords.length === 1) {
-                        ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
-                    } else if (bossNameWords.length === 2) {
-                        ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
-                    } else {
-                        ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
-                    }
-
+    
+                    // Set title with boss name and spawn chance based on word count
+                    ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
+    
+                    // Define image URLs
                     const imageUrl = `https://tarkovbot.eu/streamdeck/img/${boss.id}.webp`;
                     const fallbackUrl = `https://tarkovbot.eu/streamdeck/img/unknown_boss.webp`;
-
+    
+                    // Fetch and set the image
                     const base64Image = await this.fetchBase64Image(imageUrl, fallbackUrl);
                     if (base64Image) {
                         ev.action.setImage(base64Image);
@@ -44,6 +48,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
             }
         }
     }
+    
 
     private async fetchBase64Image(url: string, fallbackUrl: string): Promise<string | null> {
         try {
