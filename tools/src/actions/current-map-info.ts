@@ -55,7 +55,7 @@ async function refreshDataPVE(): Promise<void> {
                 map.bosses.forEach(bossData => {
                     const bossName = bossData.boss.name;
                     const bossId = bossData.boss.id;
-                    const spawnChance = bossData.spawnChance * 100; // Convert to percentage
+                    const spawnChance = (bossData.spawnChance * 100).toFixed(0); // Convert to percentage
 
                     if (!bossMap.has(bossName)) {
                         bossMap.set(bossName, { id: bossId, spawnChances: [] }); // Initialize if not present
@@ -106,7 +106,7 @@ async function refreshDataPVP(): Promise<void> {
                 map.bosses.forEach(bossData => {
                     const bossName = bossData.boss.name;
                     const bossId = bossData.boss.id;
-                    const spawnChance = bossData.spawnChance * 100; // Convert to percentage
+                    const spawnChance = (bossData.spawnChance * 100).toFixed(0); // Convert to percentage
 
                     if (!bossMap.has(bossName)) {
                         bossMap.set(bossName, { id: bossId, spawnChances: [] }); // Initialize if not present
