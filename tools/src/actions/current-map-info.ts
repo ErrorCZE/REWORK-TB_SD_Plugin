@@ -158,52 +158,79 @@ export class TarkovCurrentMapInfo extends SingletonAction {
 
     override onWillAppear(ev: WillAppearEvent): void | Promise<void> {
         ev.action.setTitle(`Press to\nGet\nMap Info`);
-    };
-
+    }
+    
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
         globalThis.location = await this.getLatestMap();
         if (globalThis.location) {
             streamDeck.profiles.switchToProfile(ev.action.device.id, "Map Info XL");
         } else {
-            ev.action.setTitle("Not\nFound");
+            ev.action.setTitle("Not Found\n" + globalThis.location);
+            streamDeck.logger.info("Map not found; returned value:", globalThis.location);
         }
     }
-
+    
     private async getLatestMap(): Promise<string | null> {
-        const logsPath = "D:\\EscapefromTarkov"; //TODO: Přidat settings možnost pro vlastní cestu, tohle použít jako default
-
-        const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
-        const logFolders = folders
-            .filter(f => f.isDirectory() && f.name.startsWith("log_"))
-            .sort((a, b) => b.name.localeCompare(a.name));
-
-        for (const folder of logFolders) {
-            const latestFolder = `${logsPath}\\${folder.name}`;
-            const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
-            const logFiles = files
-                .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
-                .sort((a, b) => b.name.localeCompare(a.name));
-
-            for (const file of logFiles) {
-                const latestFile = `${latestFolder}\\${file.name}`;
-                const content = await fs.promises.readFile(latestFile, "utf-8");
-                const lines = content.split("\n");
-
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    const match = lines[i].match(/Location:\s(\w+),/);
-                    if (match) {
-                        return match[1];
+        try {
+            // Define the path to the EFT installation folder
+            const logsPath = `${globalThis.eft_install_path}\\Logs`;
+            streamDeck.logger.info("Using logs path:", logsPath);
+            
+            // Read all folders in the EFT directory
+            const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
+            const logFolders = folders
+                .filter(f => f.isDirectory() && f.name.startsWith("log_"))
+                .sort((a, b) => b.name.localeCompare(a.name));  // Sort by folder name in descending order
+            
+            streamDeck.logger.info("Found log folders:", logFolders.map(f => f.name));
+    
+            for (const folder of logFolders) {
+                const latestFolder = `${logsPath}\\${folder.name}`;
+                streamDeck.logger.info("Checking log folder:", latestFolder);
+    
+                // Read all files in the latest log folder
+                const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
+                const logFiles = files
+                    .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
+                    .sort((a, b) => b.name.localeCompare(a.name));  // Sort log files in descending order
+                
+                streamDeck.logger.info("Found log files:", logFiles.map(f => f.name));
+    
+                for (const file of logFiles) {
+                    const latestFile = `${latestFolder}\\${file.name}`;
+                    streamDeck.logger.info("Reading log file:", latestFile);
+    
+                    const content = await fs.promises.readFile(latestFile, "utf-8");
+                    const lines = content.split("\n");
+    
+                    // Search each line in reverse order to find the latest map location
+                    for (let i = lines.length - 1; i >= 0; i--) {
+                        const match = lines[i].match(/Location:\s(\w+),/);
+                        if (match) {
+                            streamDeck.logger.info("Map location found:", match[1]);
+                            return match[1];  // Return the matched location
+                        }
                     }
+                    streamDeck.logger.info("No location found in file:", latestFile);
                 }
             }
+        } catch (error) {
+            streamDeck.logger.info("Error reading logs:", error);
         }
-        return null;
+    
+        streamDeck.logger.info("No map location found after scanning all logs.");
+        return null;  // Return null if no map location is found
     }
-
-    override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void | Promise<void> { 
-        const { pve_map_mode_check } = ev.payload.settings;
+    
+    // Update global settings when received
+    override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void | Promise<void> {
+        const { pve_map_mode_check, eft_install_path } = ev.payload.settings;
         globalThis.pve_map_mode_check = pve_map_mode_check;
-    };
+        globalThis.eft_install_path = eft_install_path;
+    
+        streamDeck.logger.info("Received settings:", ev.payload.settings);
+    }    
+    
 
 }
 
