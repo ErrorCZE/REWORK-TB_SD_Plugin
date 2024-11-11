@@ -151,6 +151,10 @@ function isApiResponse(data: any): data is ApiResponse {
 refreshDataPVE();
 refreshDataPVP();
 
+// Rrrefresh data every 20 minutes
+setInterval(refreshDataPVE, 1200000);
+setInterval(refreshDataPVP, 1200000);
+
 
 let eftInstallPath;
 @action({ UUID: "eu.tarkovbot.tools.mapinfo" })
