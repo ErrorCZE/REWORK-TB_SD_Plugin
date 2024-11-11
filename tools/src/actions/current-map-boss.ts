@@ -33,6 +33,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
                     let bossNameFormatted = bossNameWords.join("\n");
 
                     if (bossNameFormatted === "Knight") bossNameFormatted = "Goons";
+                    if (bossNameFormatted === "Cultist\nPriest") bossNameFormatted = "Cultists";
     
                     // Set title with boss name and spawn chance based on word count
                     ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);

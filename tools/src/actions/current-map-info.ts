@@ -67,13 +67,13 @@ async function refreshDataPVE(): Promise<void> {
                 bossMap.forEach(({ id, spawnChances }, name) => {
                     const lowest = Math.min(...spawnChances);
                     const highest = Math.max(...spawnChances);
-                    
+
                     // If lowest and highest are the same, just use the lowest value
                     const spawnChanceString = lowest === highest ? `${lowest}%` : `${lowest}-${highest}%`;
-                    
+
                     consolidatedBosses.push({ name, spawnChance: spawnChanceString, id }); // Include the id in the final structure
                 });
-                
+
                 return {
                     ...map,
                     bosses: consolidatedBosses
@@ -118,13 +118,13 @@ async function refreshDataPVP(): Promise<void> {
                 bossMap.forEach(({ id, spawnChances }, name) => {
                     const lowest = Math.min(...spawnChances);
                     const highest = Math.max(...spawnChances);
-                    
+
                     // If lowest and highest are the same, just use the lowest value
                     const spawnChanceString = lowest === highest ? `${lowest}%` : `${lowest}-${highest}%`;
-                    
+
                     consolidatedBosses.push({ name, spawnChance: spawnChanceString, id }); // Include the id in the final structure
                 });
-                
+
                 return {
                     ...map,
                     bosses: consolidatedBosses
@@ -152,57 +152,63 @@ refreshDataPVE();
 refreshDataPVP();
 
 
-
+let eftInstallPath;
 @action({ UUID: "eu.tarkovbot.tools.mapinfo" })
 export class TarkovCurrentMapInfo extends SingletonAction {
 
     override onWillAppear(ev: WillAppearEvent): void | Promise<void> {
         ev.action.setTitle(`Press to\nGet\nMap Info`);
     }
-    
+
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-        globalThis.location = await this.getLatestMap();
+        eftInstallPath = ev.payload.settings.eft_install_path;
+        streamDeck.logger.info("Payload settings on keydown: "+ev.payload.settings);
+        streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
+        globalThis.location = await this.getLatestMap(eftInstallPath);
+
         if (globalThis.location) {
-            streamDeck.profiles.switchToProfile(ev.action.device.id, "Map Info XL");
+            streamDeck.profiles.switchToProfile(ev.action.device.id, await this.getProfilePath(ev.action.device.type));
         } else {
-            ev.action.setTitle("Not Found\n" + globalThis.location);
+            ev.action.setTitle("Not Found");
             streamDeck.logger.info("Map not found; returned value:", globalThis.location);
         }
     }
     
-    private async getLatestMap(): Promise<string | null> {
+
+    private async getLatestMap(path: any): Promise<string | null> {
         try {
+            let pathEFT = path;
             // Define the path to the EFT installation folder
-            const logsPath = `${globalThis.eft_install_path}\\Logs`;
+            const logsPath = `${pathEFT}\\Logs`;
             streamDeck.logger.info("Using logs path:", logsPath);
-            
+
             // Read all folders in the EFT directory
             const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
             const logFolders = folders
                 .filter(f => f.isDirectory() && f.name.startsWith("log_"))
                 .sort((a, b) => b.name.localeCompare(a.name));  // Sort by folder name in descending order
-            
+
             streamDeck.logger.info("Found log folders:", logFolders.map(f => f.name));
-    
+
             for (const folder of logFolders) {
                 const latestFolder = `${logsPath}\\${folder.name}`;
                 streamDeck.logger.info("Checking log folder:", latestFolder);
-    
+
                 // Read all files in the latest log folder
                 const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
                 const logFiles = files
                     .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
                     .sort((a, b) => b.name.localeCompare(a.name));  // Sort log files in descending order
-                
+
                 streamDeck.logger.info("Found log files:", logFiles.map(f => f.name));
-    
+
                 for (const file of logFiles) {
                     const latestFile = `${latestFolder}\\${file.name}`;
                     streamDeck.logger.info("Reading log file:", latestFile);
-    
+
                     const content = await fs.promises.readFile(latestFile, "utf-8");
                     const lines = content.split("\n");
-    
+
                     // Search each line in reverse order to find the latest map location
                     for (let i = lines.length - 1; i >= 0; i--) {
                         const match = lines[i].match(/Location:\s(\w+),/);
@@ -217,20 +223,39 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         } catch (error) {
             streamDeck.logger.info("Error reading logs:", error);
         }
-    
+
         streamDeck.logger.info("No map location found after scanning all logs.");
         return null;  // Return null if no map location is found
     }
-    
+
+    private async getProfilePath(deviceType: number) {
+        switch (deviceType) {
+            case 0:
+                return "Map Info MK"
+            case 1:
+                return "Map Info Mini"
+            case 2:
+                return "Map Info XL"
+            case 3:
+                return "Map Info MK"
+            case 7:
+                return "Map Info Neo"
+            case 8:
+                return "Map Info Neo"
+            default:
+                return '';
+        }
+    }
+
     // Update global settings when received
     override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void | Promise<void> {
         const { pve_map_mode_check, eft_install_path } = ev.payload.settings;
         globalThis.pve_map_mode_check = pve_map_mode_check;
-        globalThis.eft_install_path = eft_install_path;
-    
+        eftInstallPath = eft_install_path;
+
         streamDeck.logger.info("Received settings:", ev.payload.settings);
-    }    
-    
+    }
+
 
 }
 

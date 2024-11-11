@@ -1,6 +1,6 @@
 {
 	"Name": "Escape from Tarkov Tools",
-	"Version": "1.3.0.1",
+	"Version": "1.3.0.2",
 	"Author": "TarkovBOT.eu",
 	"Category": "Escape from Tarkov Tools",
 	"CategoryIcon": "assets/categoryicon",
@@ -488,7 +488,7 @@
 	],
 	"Profiles": [
 		{
-			"Name": "Map Info MK2",
+			"Name": "Map Info MK",
 			"DeviceType": 0,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true
@@ -506,7 +506,7 @@
 			"DontAutoSwitchWhenInstalled": true
 		},
 		{
-			"Name": "Map Info MK2",
+			"Name": "Map Info MK",
 			"DeviceType": 3,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true
