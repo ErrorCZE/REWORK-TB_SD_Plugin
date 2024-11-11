@@ -23,8 +23,8 @@ interface ApiResponse {
     }
 }
 
-const apiURL_PVE = "https://tarkovbot.eu/api/pve/trader-resets/";
-const apiURL_PVP = "https://tarkovbot.eu/api/trader-resets/";
+const apiURL_PVE = "https://tarkovbot.eu/api/pve/streamdeck/trader-resets";
+const apiURL_PVP = "https://tarkovbot.eu/api/streamdeck/trader-resets";
 
 let data_PVE: TraderData[] = [];
 let data_PVP: TraderData[] = [];

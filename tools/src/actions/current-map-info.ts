@@ -37,8 +37,8 @@ interface ApiResponse {
     maps: MapData[];
 }
 
-const apiURL_PVE = "https://tarkovbot.eu/api/pve/bosses";
-const apiURL_PVP = "https://tarkovbot.eu/api/bosses";
+const apiURL_PVE = "https://tarkovbot.eu/api/pve/streamdeck/maps";
+const apiURL_PVP = "https://tarkovbot.eu/api/streamdeck/maps";
 
 // Update data for PVE
 async function refreshDataPVE(): Promise<void> {
