@@ -185,34 +185,41 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             // Define the path to the EFT installation folder
             const logsPath = `${pathEFT}\\Logs`;
             streamDeck.logger.info("Using logs path:", logsPath);
-
+    
             // Read all folders in the EFT directory
             const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
             const logFolders = folders
                 .filter(f => f.isDirectory() && f.name.startsWith("log_"))
-                .sort((a, b) => b.name.localeCompare(a.name));  // Sort by folder name in descending order
-
+                .sort((a, b) => {
+                    // Extract timestamps from folder names
+                    const timeA = this.extractTimestamp(a.name);
+                    const timeB = this.extractTimestamp(b.name);
+    
+                    // Compare timestamps in descending order
+                    return timeB - timeA;
+                });
+    
             streamDeck.logger.info("Found log folders:", logFolders.map(f => f.name));
-
+    
             for (const folder of logFolders) {
                 const latestFolder = `${logsPath}\\${folder.name}`;
                 streamDeck.logger.info("Checking log folder:", latestFolder);
-
+    
                 // Read all files in the latest log folder
                 const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
                 const logFiles = files
                     .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
                     .sort((a, b) => b.name.localeCompare(a.name));  // Sort log files in descending order
-
+    
                 streamDeck.logger.info("Found log files:", logFiles.map(f => f.name));
-
+    
                 for (const file of logFiles) {
                     const latestFile = `${latestFolder}\\${file.name}`;
                     streamDeck.logger.info("Reading log file:", latestFile);
-
+    
                     const content = await fs.promises.readFile(latestFile, "utf-8");
                     const lines = content.split("\n");
-
+    
                     // Search each line in reverse order to find the latest map location
                     for (let i = lines.length - 1; i >= 0; i--) {
                         const match = lines[i].match(/Location:\s(\w+),/);
@@ -227,10 +234,22 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         } catch (error) {
             streamDeck.logger.info("Error reading logs:", error);
         }
-
+    
         streamDeck.logger.info("No map location found after scanning all logs.");
         return null;  // Return null if no map location is found
     }
+    
+    // Helper function to extract and parse the timestamp from folder names
+    private extractTimestamp(folderName: string): number {
+        const match = folderName.match(/^log_(\d{4}\.\d{2}\.\d{2}_\d{1,2}-\d{1,2}-\d{1,2})/);
+        if (match) {
+            // Replace '-' with ':' to form a valid date-time string
+            const dateTime = match[1].replace(/-/g, ":");
+            return new Date(dateTime).getTime(); // Convert to timestamp
+        }
+        return 0; // Default to 0 if no valid timestamp is found
+    }
+    
 
     private async getProfilePath(deviceType: number) {
         switch (deviceType) {
