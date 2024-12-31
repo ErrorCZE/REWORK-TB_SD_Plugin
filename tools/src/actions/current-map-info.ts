@@ -166,7 +166,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
         eftInstallPath = ev.payload.settings.eft_install_path;
-        streamDeck.logger.info("Payload settings on keydown: "+ev.payload.settings);
+        streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
         streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
         globalThis.location = await this.getLatestMap(eftInstallPath);
 
@@ -177,12 +177,11 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             streamDeck.logger.info("Map not found; returned value:", globalThis.location);
         }
     }
-    
+
 
     private async getLatestMap(path: any): Promise<string | null> {
         try {
             let pathEFT = path;
-            // Define the path to the EFT installation folder
             const logsPath = `${pathEFT}\\Logs`;
             streamDeck.logger.info("Using logs path:", logsPath);
     
@@ -190,64 +189,80 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
             const logFolders = folders
                 .filter(f => f.isDirectory() && f.name.startsWith("log_"))
-                .sort((a, b) => {
-                    // Extract timestamps from folder names
-                    const timeA = this.extractTimestamp(a.name);
-                    const timeB = this.extractTimestamp(b.name);
+                .map(f => ({
+                    dirent: f,
+                    timestamp: this.extractTimestamp(f.name)
+                }))
+                .sort((a, b) => b.timestamp - a.timestamp) // Sort by timestamp descending
+                .map(f => f.dirent);
     
-                    // Compare timestamps in descending order
-                    return timeB - timeA;
-                });
+            if (logFolders.length === 0) {
+                streamDeck.logger.info("No log folders found");
+                return null;
+            }
     
-            streamDeck.logger.info("Found log folders:", logFolders.map(f => f.name));
+            // Get the most recent folder
+            const latestFolder = `${logsPath}\\${logFolders[0].name}`;
+            streamDeck.logger.info("Checking latest log folder:", latestFolder);
     
-            for (const folder of logFolders) {
-                const latestFolder = `${logsPath}\\${folder.name}`;
-                streamDeck.logger.info("Checking log folder:", latestFolder);
+            // Read all files in the latest log folder
+            const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
+            const logFiles = files
+                .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
+                .sort((a, b) => b.name.localeCompare(a.name)); // Sort log files in descending order
     
-                // Read all files in the latest log folder
-                const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
-                const logFiles = files
-                    .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
-                    .sort((a, b) => b.name.localeCompare(a.name));  // Sort log files in descending order
+            if (logFiles.length === 0) {
+                streamDeck.logger.info("No log files found in folder:", latestFolder);
+                return null;
+            }
     
-                streamDeck.logger.info("Found log files:", logFiles.map(f => f.name));
+            // Read only the latest log file
+            const latestFile = `${latestFolder}\\${logFiles[0].name}`;
+            streamDeck.logger.info("Reading latest log file:", latestFile);
     
-                for (const file of logFiles) {
-                    const latestFile = `${latestFolder}\\${file.name}`;
-                    streamDeck.logger.info("Reading log file:", latestFile);
+            const content = await fs.promises.readFile(latestFile, "utf-8");
+            const lines = content.split("\n");
     
-                    const content = await fs.promises.readFile(latestFile, "utf-8");
-                    const lines = content.split("\n");
-    
-                    // Search each line in reverse order to find the latest map location
-                    for (let i = lines.length - 1; i >= 0; i--) {
-                        const match = lines[i].match(/Location:\s(\w+),/);
-                        if (match) {
-                            streamDeck.logger.info("Map location found:", match[1]);
-                            return match[1];  // Return the matched location
-                        }
-                    }
-                    streamDeck.logger.info("No location found in file:", latestFile);
+            // Search each line in reverse order to find the latest map location
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const match = lines[i].match(/Location:\s(\w+),/);
+                if (match) {
+                    streamDeck.logger.info("Map location found:", match[1]);
+                    return match[1];
                 }
             }
+            
+            streamDeck.logger.info("No location found in latest file:", latestFile);
+            return null;
         } catch (error) {
             streamDeck.logger.info("Error reading logs:", error);
+            return null;
         }
-    
-        streamDeck.logger.info("No map location found after scanning all logs.");
-        return null;  // Return null if no map location is found
     }
     
-    // Helper function to extract and parse the timestamp from folder names
     private extractTimestamp(folderName: string): number {
-        const match = folderName.match(/^log_(\d{4}\.\d{2}\.\d{2}_\d{1,2}-\d{1,2}-\d{1,2})/);
-        if (match) {
-            // Replace '-' with ':' to form a valid date-time string
-            const dateTime = match[1].replace(/-/g, ":");
-            return new Date(dateTime).getTime(); // Convert to timestamp
+        try {
+            // Extract date and time parts from folder name
+            // Example format: log_2024.12.31_20-35-24_0.16.0.2.34501
+            const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
+            if (match) {
+                const [_, year, month, day, hour, minute, second] = match;
+                // Create a Date object using the extracted components
+                const date = new Date(
+                    parseInt(year),
+                    parseInt(month) - 1, // Months are 0-based in JavaScript
+                    parseInt(day),
+                    parseInt(hour),
+                    parseInt(minute),
+                    parseInt(second)
+                );
+                return date.getTime();
+            }
+            return 0;
+        } catch (error) {
+            streamDeck.logger.info("Error parsing timestamp:", error);
+            return 0;
         }
-        return 0; // Default to 0 if no valid timestamp is found
     }
     
 
