@@ -4,6 +4,9 @@ declare global {
     var locationsDataPVP: any;
     var locationsDataPVE: any;
     var pve_map_mode_check: any;
+    var map_autoupdate_check: any;
+    var datacentersData: any;
+    var currentserver_autoupdate_check: any;
 }
 
 export {}

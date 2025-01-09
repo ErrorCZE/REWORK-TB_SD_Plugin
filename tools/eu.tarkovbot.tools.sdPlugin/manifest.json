@@ -144,6 +144,27 @@
 			"SupportedInMultiActions": false
 		},
 		{
+			"Name": "Current Raid Server",
+			"UUID": "eu.tarkovbot.tools.raidserver",
+			"Icon": "assets/actionicon_raidserver",
+			"Tooltip": "Simply move this action to any button and wait for the region to show.",
+			"PropertyInspectorPath": "property-inspector/inspector_raidserver.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "middle",
+					"FontSize": 11
+				}
+			],
+			"Encoder": {
+				"layout": "$B1"
+			},
+			"UserTitleEnabled": false
+		},
+		{
 			"Name": "Map Info - Boss Info [0]",
 			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo0",
 			"Icon": "assets/empty_image",
