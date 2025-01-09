@@ -8,7 +8,7 @@
 </head>
 
 <body>
-    <sdpi-item label="Source">
+    <sdpi-item label="Game Mode">
         <sdpi-select setting="selectedGoonsSource" placeholder="Select Game Mode">
             <option value="NEW">Newest (PVP + PVE)</option>
             <option value="PVP">PVP Only</option>
@@ -20,14 +20,26 @@
         <sdpi-textfield setting="token"></sdpi-textfield>
     </sdpi-item>
 
-    <sdpi-item>
-        <b style="color:orange;font-size:13px">Enter your token above to access this feature.</b>
-        <span style="color:white;font-size:13px">Get your token from the StreamDeck section in your dashboard on our website.</span>
-    </sdpi-item>
-    
-    <sdpi-item>
-        <sdpi-button onclick="SDPIComponents.streamDeckClient.send('sendToPlugin', 'openWebsite');">More info & Website</sdpi-button>
-    </sdpi-item>
+    <div style="
+    border: solid gray 1px;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    color: white;
+    font-size: 13px;
+    background: rgba(0,0,0,.5);
+    font-family: system-ui;
+">
+            <b style="color:orange;font-size:13px">Enter your token above to access this feature.</b>
+            <div style="color:white;font-size:13px">Get your token from the StreamDeck section in your dashboard on our website.</div>
+            <div style="margin-top:5px;width: 100%"><sdpi-button onclick="SDPIComponents.streamDeckClient.send('sendToPlugin', 'openWebsite');">More info & Website</sdpi-button></div>
+            
+    </div>
     
 </body>
 
