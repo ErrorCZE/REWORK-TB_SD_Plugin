@@ -156,7 +156,8 @@ setInterval(refreshDataPVE, 1200000);
 setInterval(refreshDataPVP, 1200000);
 
 
-let eftInstallPath;
+let eftInstallPath: any;
+let intervalUpdateInterval: any;
 @action({ UUID: "eu.tarkovbot.tools.mapinfo" })
 export class TarkovCurrentMapInfo extends SingletonAction {
 
@@ -168,7 +169,22 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         eftInstallPath = ev.payload.settings.eft_install_path;
         streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
         streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
-        globalThis.location = await this.getLatestMap(eftInstallPath);
+
+        // Clear any existing interval to prevent multiple intervals from being created
+        if (intervalUpdateInterval) {
+            clearInterval(intervalUpdateInterval);
+            intervalUpdateInterval = null; // Reset the interval variable
+        }
+
+        if (globalThis.map_autoupdate_check) {
+            // Start a new interval if auto-update is enabled
+            intervalUpdateInterval = setInterval(async () => {
+                globalThis.location = await this.getLatestMap(eftInstallPath);
+            }, 3000);
+        } else {
+            // Perform a one-time update if auto-update is disabled
+            globalThis.location = await this.getLatestMap(eftInstallPath);
+        }
 
         if (globalThis.location) {
             streamDeck.profiles.switchToProfile(ev.action.device.id, await this.getProfilePath(ev.action.device.type));
@@ -178,13 +194,12 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         }
     }
 
-
     private async getLatestMap(path: any): Promise<string | null> {
         try {
             let pathEFT = path;
             const logsPath = `${pathEFT}\\Logs`;
             streamDeck.logger.info("Using logs path:", logsPath);
-    
+
             // Read all folders in the EFT directory
             const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
             const logFolders = folders
@@ -195,34 +210,34 @@ export class TarkovCurrentMapInfo extends SingletonAction {
                 }))
                 .sort((a, b) => b.timestamp - a.timestamp) // Sort by timestamp descending
                 .map(f => f.dirent);
-    
+
             if (logFolders.length === 0) {
                 streamDeck.logger.info("No log folders found");
                 return null;
             }
-    
+
             // Get the most recent folder
             const latestFolder = `${logsPath}\\${logFolders[0].name}`;
             streamDeck.logger.info("Checking latest log folder:", latestFolder);
-    
+
             // Read all files in the latest log folder
             const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
             const logFiles = files
                 .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
                 .sort((a, b) => b.name.localeCompare(a.name)); // Sort log files in descending order
-    
+
             if (logFiles.length === 0) {
                 streamDeck.logger.info("No log files found in folder:", latestFolder);
                 return null;
             }
-    
+
             // Read only the latest log file
             const latestFile = `${latestFolder}\\${logFiles[0].name}`;
             streamDeck.logger.info("Reading latest log file:", latestFile);
-    
+
             const content = await fs.promises.readFile(latestFile, "utf-8");
             const lines = content.split("\n");
-    
+
             // Search each line in reverse order to find the latest map location
             for (let i = lines.length - 1; i >= 0; i--) {
                 const match = lines[i].match(/Location:\s(\w+),/);
@@ -231,7 +246,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
                     return match[1];
                 }
             }
-            
+
             streamDeck.logger.info("No location found in latest file:", latestFile);
             return null;
         } catch (error) {
@@ -239,7 +254,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             return null;
         }
     }
-    
+
     private extractTimestamp(folderName: string): number {
         try {
             // Extract date and time parts from folder name
@@ -264,7 +279,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             return 0;
         }
     }
-    
+
 
     private async getProfilePath(deviceType: number) {
         switch (deviceType) {
@@ -285,15 +300,16 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         }
     }
 
+
     // Update global settings when received
     override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void | Promise<void> {
-        const { pve_map_mode_check, eft_install_path } = ev.payload.settings;
+        const { pve_map_mode_check, eft_install_path, map_autoupdate_check } = ev.payload.settings;
         globalThis.pve_map_mode_check = pve_map_mode_check;
-        eftInstallPath = eft_install_path;
+        globalThis.eftInstallPath = eft_install_path;
+        globalThis.map_autoupdate_check = map_autoupdate_check;
 
         streamDeck.logger.info("Received settings:", ev.payload.settings);
     }
-
 
 }
 

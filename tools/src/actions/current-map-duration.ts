@@ -21,7 +21,7 @@ export class TarkovCurrentMapInfo_Duration extends SingletonAction {
             if (mapData) {
                 ev.action.setTitle(`\n${mapData.raidDuration} min`);
             } else {
-                ev.action.setTitle("No Map\nData");
+                ev.action.setTitle("\nNo Map\nData");
             }
         } else {
             ev.action.setTitle("\nUnknown\nLocation");
