@@ -161,8 +161,23 @@ let intervalUpdateInterval: any;
 @action({ UUID: "eu.tarkovbot.tools.mapinfo" })
 export class TarkovCurrentMapInfo extends SingletonAction {
 
-    override onWillAppear(ev: WillAppearEvent): void | Promise<void> {
+    override async onWillAppear(ev: WillAppearEvent): Promise<void> {
         ev.action.setTitle(`Press to\nGet\nMap Info`);
+        eftInstallPath = ev.payload.settings.eft_install_path;
+
+        if (ev.payload.settings.map_autoupdate_check) {
+            streamDeck.logger.info("Auto-update is enabled");
+            // Start a new interval if auto-update is enabled
+            intervalUpdateInterval = setInterval(async () => {
+                globalThis.location = await this.getLatestMap(eftInstallPath);
+                streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
+            }, 3000);
+        } else {
+            streamDeck.logger.info("Auto-update is disabled");
+            // Perform a one-time update if auto-update is disabled
+            globalThis.location = await this.getLatestMap(eftInstallPath);
+            streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
+        }
     }
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
@@ -180,10 +195,14 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             // Start a new interval if auto-update is enabled
             intervalUpdateInterval = setInterval(async () => {
                 globalThis.location = await this.getLatestMap(eftInstallPath);
+                streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
             }, 3000);
         } else {
+            //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
+            //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
             // Perform a one-time update if auto-update is disabled
             globalThis.location = await this.getLatestMap(eftInstallPath);
+            streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
         }
 
         if (globalThis.location) {

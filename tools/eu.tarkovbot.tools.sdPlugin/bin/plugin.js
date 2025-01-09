@@ -8309,8 +8309,23 @@ let TarkovCurrentMapInfo = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onWillAppear(ev) {
+        async onWillAppear(ev) {
             ev.action.setTitle(`Press to\nGet\nMap Info`);
+            eftInstallPath = ev.payload.settings.eft_install_path;
+            if (ev.payload.settings.map_autoupdate_check) {
+                streamDeck.logger.info("Auto-update is enabled");
+                // Start a new interval if auto-update is enabled
+                intervalUpdateInterval = setInterval(async () => {
+                    globalThis.location = await this.getLatestMap(eftInstallPath);
+                    streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
+                }, 3000);
+            }
+            else {
+                streamDeck.logger.info("Auto-update is disabled");
+                // Perform a one-time update if auto-update is disabled
+                globalThis.location = await this.getLatestMap(eftInstallPath);
+                streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
+            }
         }
         async onKeyDown(ev) {
             eftInstallPath = ev.payload.settings.eft_install_path;
@@ -8325,11 +8340,15 @@ let TarkovCurrentMapInfo = (() => {
                 // Start a new interval if auto-update is enabled
                 intervalUpdateInterval = setInterval(async () => {
                     globalThis.location = await this.getLatestMap(eftInstallPath);
+                    streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
                 }, 3000);
             }
             else {
+                //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
+                //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
                 // Perform a one-time update if auto-update is disabled
                 globalThis.location = await this.getLatestMap(eftInstallPath);
+                streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
             }
             if (globalThis.location) {
                 streamDeck.profiles.switchToProfile(ev.action.device.id, await this.getProfilePath(ev.action.device.type));
