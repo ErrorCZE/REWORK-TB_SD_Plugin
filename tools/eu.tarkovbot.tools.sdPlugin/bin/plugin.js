@@ -8345,7 +8345,7 @@ let TarkovCurrentMapInfo = (() => {
             }
             else {
                 //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
-                //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
+                //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALUss
                 // Perform a one-time update if auto-update is disabled
                 globalThis.location = await this.getLatestMap(eftInstallPath);
                 streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);

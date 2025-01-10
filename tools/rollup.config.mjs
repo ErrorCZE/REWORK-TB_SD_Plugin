@@ -12,6 +12,7 @@ const sdPlugin = "eu.tarkovbot.tools.sdPlugin";
  * @type {import('rollup').RollupOptions}
  */
 const config = {
+	cache: false,
 	input: "src/plugin.ts",
 	output: {
 		file: `${sdPlugin}/bin/plugin.js`,
