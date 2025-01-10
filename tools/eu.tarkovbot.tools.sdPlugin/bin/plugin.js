@@ -12,6 +12,7 @@ import path, { join } from 'node:path';
 import { cwd } from 'node:process';
 import fs, { existsSync, readFileSync } from 'node:fs';
 import fs$1 from 'fs';
+import path$1 from 'path';
 
 function getDefaultExportFromCjs (x) {
 	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
@@ -8321,6 +8322,11 @@ let TarkovCurrentMapInfo = (() => {
                 }, 3000);
             }
             else {
+                // Clear the interval if it exists to stop auto-update
+                if (intervalUpdateInterval) {
+                    clearInterval(intervalUpdateInterval);
+                    intervalUpdateInterval = null; // Reset the interval variable
+                }
                 streamDeck.logger.info("Auto-update is disabled");
                 // Perform a one-time update if auto-update is disabled
                 globalThis.location = await this.getLatestMap(eftInstallPath);
@@ -8336,7 +8342,7 @@ let TarkovCurrentMapInfo = (() => {
                 clearInterval(intervalUpdateInterval);
                 intervalUpdateInterval = null; // Reset the interval variable
             }
-            if (globalThis.map_autoupdate_check) {
+            if (ev.payload.settings.map_autoupdate_check) {
                 // Start a new interval if auto-update is enabled
                 intervalUpdateInterval = setInterval(async () => {
                     globalThis.location = await this.getLatestMap(eftInstallPath);
@@ -8344,8 +8350,11 @@ let TarkovCurrentMapInfo = (() => {
                 }, 3000);
             }
             else {
-                //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
-                //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALUss
+                // Clear the interval if it exists to stop auto-update
+                if (intervalUpdateInterval) {
+                    clearInterval(intervalUpdateInterval);
+                    intervalUpdateInterval = null; // Reset the interval variable
+                }
                 // Perform a one-time update if auto-update is disabled
                 globalThis.location = await this.getLatestMap(eftInstallPath);
                 streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
@@ -8454,6 +8463,39 @@ let TarkovCurrentMapInfo = (() => {
             globalThis.eftInstallPath = eft_install_path;
             globalThis.map_autoupdate_check = map_autoupdate_check;
             streamDeck.logger.info("Received settings:", ev.payload.settings);
+            // Prepare the data to be updated
+            const updatedData = {
+                current_map_info: {
+                    pve_map_mode_check,
+                    eft_install_path,
+                    map_autoupdate_check,
+                },
+            };
+            // Define the path to the user_settings.json file
+            const settingsFilePath = path$1.join(process.cwd(), 'user_settings.json');
+            // Read the existing file, update it, and save back
+            fs$1.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
+                let existingData = {};
+                if (!readErr) {
+                    try {
+                        existingData = JSON.parse(fileData); // Parse existing JSON
+                    }
+                    catch (parseErr) {
+                        streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
+                    }
+                }
+                // Merge existing settings with the updated data
+                const mergedData = { ...existingData, ...updatedData };
+                // Write the merged data back to the file
+                fs$1.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
+                    if (writeErr) {
+                        streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
+                    }
+                    else {
+                        streamDeck.logger.info("Settings successfully updated in user_settings.json");
+                    }
+                });
+            });
         }
     });
     return _classThis;
@@ -8992,7 +9034,9 @@ let TarkovCurrentMapInfo_Boss_Sixteenth = (() => {
     return _classThis;
 })();
 
+/*
 streamDeck.logger.setLevel(LogLevel.TRACE);
+*/
 streamDeck.actions.registerAction(new TarkovTime());
 streamDeck.actions.registerAction(new TarkovGoonsLocation());
 streamDeck.actions.registerAction(new TarkovTraderRestock());

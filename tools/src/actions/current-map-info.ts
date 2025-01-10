@@ -9,6 +9,7 @@ import {
     JsonObject
 } from "@elgato/streamdeck";
 import fs from "fs";
+import path from "path";
 
 interface BossHealth {
     bodyPart: string;
@@ -173,6 +174,11 @@ export class TarkovCurrentMapInfo extends SingletonAction {
                 streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
             }, 3000);
         } else {
+            // Clear the interval if it exists to stop auto-update
+            if (intervalUpdateInterval) {
+                clearInterval(intervalUpdateInterval);
+                intervalUpdateInterval = null; // Reset the interval variable
+            }
             streamDeck.logger.info("Auto-update is disabled");
             // Perform a one-time update if auto-update is disabled
             globalThis.location = await this.getLatestMap(eftInstallPath);
@@ -191,15 +197,18 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             intervalUpdateInterval = null; // Reset the interval variable
         }
 
-        if (globalThis.map_autoupdate_check) {
+        if (ev.payload.settings.map_autoupdate_check) {
             // Start a new interval if auto-update is enabled
             intervalUpdateInterval = setInterval(async () => {
                 globalThis.location = await this.getLatestMap(eftInstallPath);
                 streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
             }, 3000);
         } else {
-            //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALU
-            //! NĚKDE TU PŘIDAT VYPÍNÁNÍ INTERVALUss
+            // Clear the interval if it exists to stop auto-update
+            if (intervalUpdateInterval) {
+                clearInterval(intervalUpdateInterval);
+                intervalUpdateInterval = null; // Reset the interval variable
+            }
             // Perform a one-time update if auto-update is disabled
             globalThis.location = await this.getLatestMap(eftInstallPath);
             streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
@@ -212,6 +221,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             streamDeck.logger.info("Map not found; returned value:", globalThis.location);
         }
     }
+
 
     private async getLatestMap(path: any): Promise<string | null> {
         try {
@@ -326,9 +336,45 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         globalThis.pve_map_mode_check = pve_map_mode_check;
         globalThis.eftInstallPath = eft_install_path;
         globalThis.map_autoupdate_check = map_autoupdate_check;
-
+    
         streamDeck.logger.info("Received settings:", ev.payload.settings);
+    
+        // Prepare the data to be updated
+        const updatedData = {
+            current_map_info: {
+                pve_map_mode_check,
+                eft_install_path,
+                map_autoupdate_check,
+            },
+        };
+    
+        // Define the path to the user_settings.json file
+        const settingsFilePath = path.join(process.cwd(), 'user_settings.json');
+    
+        // Read the existing file, update it, and save back
+        fs.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
+            let existingData = {};
+    
+            if (!readErr) {
+                try {
+                    existingData = JSON.parse(fileData); // Parse existing JSON
+                } catch (parseErr) {
+                    streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
+                }
+            }
+    
+            // Merge existing settings with the updated data
+            const mergedData = { ...existingData, ...updatedData };
+    
+            // Write the merged data back to the file
+            fs.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
+                if (writeErr) {
+                    streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
+                } else {
+                    streamDeck.logger.info("Settings successfully updated in user_settings.json");
+                }
+            });
+        });
     }
-
 }
 

@@ -29,8 +29,9 @@ import {
 } from "./actions/current-map-bosses";
 
 
-
+/* 
 streamDeck.logger.setLevel(LogLevel.TRACE);
+*/
 
 
 streamDeck.actions.registerAction(new TarkovTime());
