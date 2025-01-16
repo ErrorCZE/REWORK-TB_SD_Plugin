@@ -1,10 +1,9 @@
 {
-    "test": {
-        "test": "test"
+    "global": {
+        "eft_install_path": "C:\\Battlestate Games\\EFT"
     },
     "current_map_info": {
-        "pve_map_mode_check": true,
-        "eft_install_path": "C:\\Battlestate Games\\EFT",
-        "map_autoupdate_check": true
+        "pve_map_mode_check": false,
+        "map_autoupdate_check": false
     }
 }

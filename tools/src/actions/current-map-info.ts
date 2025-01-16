@@ -341,9 +341,11 @@ export class TarkovCurrentMapInfo extends SingletonAction {
     
         // Prepare the data to be updated
         const updatedData = {
+            global: {
+                eft_install_path,
+            },
             current_map_info: {
                 pve_map_mode_check,
-                eft_install_path,
                 map_autoupdate_check,
             },
         };
