@@ -8450,7 +8450,7 @@ let TarkovCurrentMapInfo = (() => {
                     return "Map Info MK";
                 case 7:
                     return "Map Info Neo";
-                case 8:
+                case 9:
                     return "Map Info Neo";
                 default:
                     return '';
