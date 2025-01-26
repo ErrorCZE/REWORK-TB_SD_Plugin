@@ -8,6 +8,7 @@ import { TarkovCurrentMapInfo_Name } from "./actions/current-map-name";
 import { TarkovCurrentMapInfo_Duration } from "./actions/current-map-duration";
 import { TarkovCurrentMapInfo_Players } from "./actions/current-map-players";
 import { TarkovCurrentMapInfo_BackToProfile } from "./actions/current-map-backtoprofile";
+import { TarkovCurrentServerInfo } from "./actions/current-server";
 
 import { 
     TarkovCurrentMapInfo_Boss_First,
@@ -61,5 +62,7 @@ streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Fifteenth());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Sixteenth());
 
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_BackToProfile());
+
+streamDeck.actions.registerAction(new TarkovCurrentServerInfo());
 
 streamDeck.connect();

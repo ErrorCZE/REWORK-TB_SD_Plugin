@@ -14,110 +14,95 @@ import fs, { existsSync, readFileSync } from 'node:fs';
 import fs$1 from 'fs';
 import path$1 from 'path';
 
-function getDefaultExportFromCjs (x) {
-	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
-}
-
-var plugins = {};
-
 /**!
  * @author Elgato
  * @module elgato/streamdeck
  * @license MIT
  * @copyright Copyright (c) Corsair Memory Inc.
  */
+/**
+ * Stream Deck device types.
+ */
+var DeviceType;
+(function (DeviceType) {
+    /**
+     * Stream Deck, comprised of 15 customizable LCD keys in a 5 x 3 layout.
+     */
+    DeviceType[DeviceType["StreamDeck"] = 0] = "StreamDeck";
+    /**
+     * Stream Deck Mini, comprised of 6 customizable LCD keys in a 3 x 2 layout.
+     */
+    DeviceType[DeviceType["StreamDeckMini"] = 1] = "StreamDeckMini";
+    /**
+     * Stream Deck XL, comprised of 32 customizable LCD keys in an 8 x 4 layout.
+     */
+    DeviceType[DeviceType["StreamDeckXL"] = 2] = "StreamDeckXL";
+    /**
+     * Stream Deck Mobile, for iOS and Android.
+     */
+    DeviceType[DeviceType["StreamDeckMobile"] = 3] = "StreamDeckMobile";
+    /**
+     * Corsair G Keys, available on select Corsair keyboards.
+     */
+    DeviceType[DeviceType["CorsairGKeys"] = 4] = "CorsairGKeys";
+    /**
+     * Stream Deck Pedal, comprised of 3 customizable pedals.
+     */
+    DeviceType[DeviceType["StreamDeckPedal"] = 5] = "StreamDeckPedal";
+    /**
+     * Corsair Voyager laptop, comprising 10 buttons in a horizontal line above the keyboard.
+     */
+    DeviceType[DeviceType["CorsairVoyager"] = 6] = "CorsairVoyager";
+    /**
+     * Stream Deck +, comprised of 8 customizable LCD keys in a 4 x 2 layout, a touch strip, and 4 dials.
+     */
+    DeviceType[DeviceType["StreamDeckPlus"] = 7] = "StreamDeckPlus";
+    /**
+     * SCUF controller G keys, available on select SCUF controllers, for example SCUF Envision.
+     */
+    DeviceType[DeviceType["SCUFController"] = 8] = "SCUFController";
+    /**
+     * Stream Deck Neo, comprised of 8 customizable LCD keys in a 4 x 2 layout, an info bar, and 2 touch points for page navigation.
+     */
+    DeviceType[DeviceType["StreamDeckNeo"] = 9] = "StreamDeckNeo";
+})(DeviceType || (DeviceType = {}));
 
-var hasRequiredPlugins;
+/**
+ * List of available types that can be applied to {@link Bar} and {@link GBar} to determine their style.
+ */
+var BarSubType;
+(function (BarSubType) {
+    /**
+     * Rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
+     */
+    BarSubType[BarSubType["Rectangle"] = 0] = "Rectangle";
+    /**
+     * Rectangle bar; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}.
+     * @example
+     * // Value is 2, range is 1-10.
+     * // [  ███     ]
+     * @example
+     * // Value is 10, range is 1-10.
+     * // [     █████]
+     */
+    BarSubType[BarSubType["DoubleRectangle"] = 1] = "DoubleRectangle";
+    /**
+     * Trapezoid bar, represented as a right-angle triangle; the bar fills from left to right, determined by the {@link Bar.value}, similar to a volume meter.
+     */
+    BarSubType[BarSubType["Trapezoid"] = 2] = "Trapezoid";
+    /**
+     * Trapezoid bar, represented by two right-angle triangles; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}. See {@link BarSubType.DoubleRectangle}.
+     */
+    BarSubType[BarSubType["DoubleTrapezoid"] = 3] = "DoubleTrapezoid";
+    /**
+     * Rounded rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
+     */
+    BarSubType[BarSubType["Groove"] = 4] = "Groove";
+})(BarSubType || (BarSubType = {}));
 
-function requirePlugins () {
-	if (hasRequiredPlugins) return plugins;
-	hasRequiredPlugins = 1;
-	(function (exports) {
-
-		/**
-		 * Stream Deck device types.
-		 */
-		exports.DeviceType = void 0;
-		(function (DeviceType) {
-		    /**
-		     * Stream Deck, comprised of 15 customizable LCD keys in a 5 x 3 layout.
-		     */
-		    DeviceType[DeviceType["StreamDeck"] = 0] = "StreamDeck";
-		    /**
-		     * Stream Deck Mini, comprised of 6 customizable LCD keys in a 3 x 2 layout.
-		     */
-		    DeviceType[DeviceType["StreamDeckMini"] = 1] = "StreamDeckMini";
-		    /**
-		     * Stream Deck XL, comprised of 32 customizable LCD keys in an 8 x 4 layout.
-		     */
-		    DeviceType[DeviceType["StreamDeckXL"] = 2] = "StreamDeckXL";
-		    /**
-		     * Stream Deck Mobile, for iOS and Android.
-		     */
-		    DeviceType[DeviceType["StreamDeckMobile"] = 3] = "StreamDeckMobile";
-		    /**
-		     * Corsair G Keys, available on select Corsair keyboards.
-		     */
-		    DeviceType[DeviceType["CorsairGKeys"] = 4] = "CorsairGKeys";
-		    /**
-		     * Stream Deck Pedal, comprised of 3 customizable pedals.
-		     */
-		    DeviceType[DeviceType["StreamDeckPedal"] = 5] = "StreamDeckPedal";
-		    /**
-		     * Corsair Voyager laptop, comprising 10 buttons in a horizontal line above the keyboard.
-		     */
-		    DeviceType[DeviceType["CorsairVoyager"] = 6] = "CorsairVoyager";
-		    /**
-		     * Stream Deck +, comprised of 8 customizable LCD keys in a 4 x 2 layout, a touch strip, and 4 dials.
-		     */
-		    DeviceType[DeviceType["StreamDeckPlus"] = 7] = "StreamDeckPlus";
-		    /**
-		     * SCUF controller G keys, available on select SCUF controllers, for example SCUF Envision.
-		     */
-		    DeviceType[DeviceType["SCUFController"] = 8] = "SCUFController";
-		    /**
-		     * Stream Deck Neo, comprised of 8 customizable LCD keys in a 4 x 2 layout, an info bar, and 2 touch points for page navigation.
-		     */
-		    DeviceType[DeviceType["StreamDeckNeo"] = 9] = "StreamDeckNeo";
-		})(exports.DeviceType || (exports.DeviceType = {}));
-
-		/**
-		 * List of available types that can be applied to {@link Bar} and {@link GBar} to determine their style.
-		 */
-		exports.BarSubType = void 0;
-		(function (BarSubType) {
-		    /**
-		     * Rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
-		     */
-		    BarSubType[BarSubType["Rectangle"] = 0] = "Rectangle";
-		    /**
-		     * Rectangle bar; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}.
-		     * @example
-		     * // Value is 2, range is 1-10.
-		     * // [  ███     ]
-		     * @example
-		     * // Value is 10, range is 1-10.
-		     * // [     █████]
-		     */
-		    BarSubType[BarSubType["DoubleRectangle"] = 1] = "DoubleRectangle";
-		    /**
-		     * Trapezoid bar, represented as a right-angle triangle; the bar fills from left to right, determined by the {@link Bar.value}, similar to a volume meter.
-		     */
-		    BarSubType[BarSubType["Trapezoid"] = 2] = "Trapezoid";
-		    /**
-		     * Trapezoid bar, represented by two right-angle triangles; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}. See {@link BarSubType.DoubleRectangle}.
-		     */
-		    BarSubType[BarSubType["DoubleTrapezoid"] = 3] = "DoubleTrapezoid";
-		    /**
-		     * Rounded rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
-		     */
-		    BarSubType[BarSubType["Groove"] = 4] = "Groove";
-		})(exports.BarSubType || (exports.BarSubType = {})); 
-	} (plugins));
-	return plugins;
+function getDefaultExportFromCjs (x) {
+	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
 }
-
-requirePlugins();
 
 var bufferUtil = {exports: {}};
 
@@ -8070,13 +8055,13 @@ let TarkovGoonsLocation = (() => {
     return _classThis;
 })();
 
-const apiURL_PVE$1 = "https://tarkovbot.eu/api/pve/streamdeck/trader-resets";
-const apiURL_PVP$1 = "https://tarkovbot.eu/api/streamdeck/trader-resets";
+const apiURL_PVE = "https://tarkovbot.eu/api/pve/streamdeck/trader-resets";
+const apiURL_PVP = "https://tarkovbot.eu/api/streamdeck/trader-resets";
 let data_PVE = [];
 let data_PVP = [];
-async function refreshDataPVE$1() {
+async function refreshDataPVE() {
     try {
-        const response = await fetch(apiURL_PVE$1);
+        const response = await fetch(apiURL_PVE);
         const jsonData = await response.json();
         data_PVE = jsonData.data.traders;
     }
@@ -8085,9 +8070,9 @@ async function refreshDataPVE$1() {
         data_PVE = [];
     }
 }
-async function refreshDataPVP$1() {
+async function refreshDataPVP() {
     try {
-        const response = await fetch(apiURL_PVP$1);
+        const response = await fetch(apiURL_PVP);
         const jsonData = await response.json();
         data_PVP = jsonData.data.traders;
     }
@@ -8096,10 +8081,10 @@ async function refreshDataPVP$1() {
         data_PVP = [];
     }
 }
-refreshDataPVP$1();
-refreshDataPVE$1();
-setInterval(refreshDataPVP$1, 900000);
-setInterval(refreshDataPVE$1, 900000);
+refreshDataPVP();
+refreshDataPVE();
+setInterval(refreshDataPVP, 900000);
+setInterval(refreshDataPVE, 900000);
 let TarkovTraderRestock = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.traderrestock" })];
     let _classDescriptor;
@@ -8140,10 +8125,10 @@ let TarkovTraderRestock = (() => {
             action.setTitle("\n\n\nLoading");
             // Wait for data to be refreshed if it's empty
             if (settings.pve_traders_mode_check && (!Array.isArray(data_PVE) || data_PVE.length === 0)) {
-                await refreshDataPVE$1();
+                await refreshDataPVE();
             }
             else if (!settings.pve_traders_mode_check && (!Array.isArray(data_PVP) || data_PVP.length === 0)) {
-                await refreshDataPVP$1();
+                await refreshDataPVP();
             }
             const intervalId = setInterval(() => {
                 const trader = settings.selectedTrader;
@@ -8202,98 +8187,54 @@ let TarkovTraderRestock = (() => {
     return _classThis;
 })();
 
-const apiURL_PVE = "https://tarkovbot.eu/api/pve/streamdeck/maps";
-const apiURL_PVP = "https://tarkovbot.eu/api/streamdeck/maps";
-// Update data for PVE
-async function refreshDataPVE() {
+const apiURLs = {
+    PVE: "https://tarkovbot.eu/api/pve/streamdeck/maps",
+    PVP: "https://tarkovbot.eu/api/streamdeck/maps"
+};
+async function refreshData(mode) {
+    const apiURL = apiURLs[mode];
     try {
-        const response = await fetch(apiURL_PVE);
+        const response = await fetch(apiURL);
         const jsonData = await response.json();
         if (isApiResponse(jsonData)) {
-            globalThis.locationsDataPVE = jsonData.maps.map(map => {
-                const consolidatedBosses = [];
-                const bossMap = new Map(); // Map to track spawn chances and ids for each boss
-                // Iterate through each boss to consolidate
+            const locationsData = jsonData.maps.map(map => {
+                const bossMap = new Map();
                 map.bosses.forEach(bossData => {
                     const bossName = bossData.boss.name;
                     const bossId = bossData.boss.id;
-                    const spawnChance = (bossData.spawnChance * 100).toFixed(0); // Convert to percentage
+                    const spawnChance = (bossData.spawnChance * 100).toFixed(0);
                     if (!bossMap.has(bossName)) {
-                        bossMap.set(bossName, { id: bossId, spawnChances: [] }); // Initialize if not present
+                        bossMap.set(bossName, { id: bossId, spawnChances: [] });
                     }
-                    bossMap.get(bossName).spawnChances.push(spawnChance);
+                    bossMap.get(bossName).spawnChances.push(Number(spawnChance));
                 });
-                // Now map the consolidated data
-                bossMap.forEach(({ id, spawnChances }, name) => {
+                const consolidatedBosses = Array.from(bossMap).map(([name, { id, spawnChances }]) => {
                     const lowest = Math.min(...spawnChances);
                     const highest = Math.max(...spawnChances);
-                    // If lowest and highest are the same, just use the lowest value
                     const spawnChanceString = lowest === highest ? `${lowest}%` : `${lowest}-${highest}%`;
-                    consolidatedBosses.push({ name, spawnChance: spawnChanceString, id }); // Include the id in the final structure
+                    return { name, spawnChance: spawnChanceString, id };
                 });
                 return {
                     ...map,
                     bosses: consolidatedBosses
                 };
             });
-            streamDeck.logger.info("Processed PVE Map Data:", globalThis.locationsDataPVE);
+            globalThis[`locationsData${mode}`] = locationsData;
+            streamDeck.logger.info(`Processed ${mode} Map Data:`, locationsData);
         }
     }
     catch (error) {
-        streamDeck.logger.info("Error fetching PVE data:", error);
+        streamDeck.logger.error(`Error fetching ${mode} data:`, error);
     }
 }
-// Update data for PVP
-async function refreshDataPVP() {
-    try {
-        const response = await fetch(apiURL_PVP);
-        const jsonData = await response.json();
-        if (isApiResponse(jsonData)) {
-            globalThis.locationsDataPVP = jsonData.maps.map(map => {
-                const consolidatedBosses = [];
-                const bossMap = new Map(); // Map to track spawn chances and ids for each boss
-                // Iterate through each boss to consolidate
-                map.bosses.forEach(bossData => {
-                    const bossName = bossData.boss.name;
-                    const bossId = bossData.boss.id;
-                    const spawnChance = (bossData.spawnChance * 100).toFixed(0); // Convert to percentage
-                    if (!bossMap.has(bossName)) {
-                        bossMap.set(bossName, { id: bossId, spawnChances: [] }); // Initialize if not present
-                    }
-                    bossMap.get(bossName).spawnChances.push(spawnChance);
-                });
-                // Now map the consolidated data
-                bossMap.forEach(({ id, spawnChances }, name) => {
-                    const lowest = Math.min(...spawnChances);
-                    const highest = Math.max(...spawnChances);
-                    // If lowest and highest are the same, just use the lowest value
-                    const spawnChanceString = lowest === highest ? `${lowest}%` : `${lowest}-${highest}%`;
-                    consolidatedBosses.push({ name, spawnChance: spawnChanceString, id }); // Include the id in the final structure
-                });
-                return {
-                    ...map,
-                    bosses: consolidatedBosses
-                };
-            });
-            streamDeck.logger.info("Processed PVP Map Data:", globalThis.locationsDataPVP);
-        }
-    }
-    catch (error) {
-        streamDeck.logger.info("Error fetching PVP data:", error);
-    }
-}
-// Type Guard for ApiResponse
 function isApiResponse(data) {
-    return (data &&
-        typeof data === 'object' &&
-        Array.isArray(data.maps));
+    return data && typeof data === 'object' && Array.isArray(data.maps);
 }
-refreshDataPVE();
-refreshDataPVP();
-// Rrrefresh data every 20 minutes
-setInterval(refreshDataPVE, 1200000);
-setInterval(refreshDataPVP, 1200000);
-let eftInstallPath;
+refreshData('PVE');
+refreshData('PVP');
+setInterval(() => refreshData('PVE'), 1200000);
+setInterval(() => refreshData('PVP'), 1200000);
+let eftInstallPath$1;
 let intervalUpdateInterval;
 let TarkovCurrentMapInfo = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo" })];
@@ -8312,51 +8253,23 @@ let TarkovCurrentMapInfo = (() => {
         }
         async onWillAppear(ev) {
             ev.action.setTitle(`Press to\nGet\nMap Info`);
-            eftInstallPath = ev.payload.settings.eft_install_path;
-            if (ev.payload.settings.map_autoupdate_check) {
-                streamDeck.logger.info("Auto-update is enabled");
-                // Start a new interval if auto-update is enabled
-                intervalUpdateInterval = setInterval(async () => {
-                    globalThis.location = await this.getLatestMap(eftInstallPath);
-                    streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
-                }, 3000);
-            }
-            else {
-                // Clear the interval if it exists to stop auto-update
-                if (intervalUpdateInterval) {
-                    clearInterval(intervalUpdateInterval);
-                    intervalUpdateInterval = null; // Reset the interval variable
-                }
-                streamDeck.logger.info("Auto-update is disabled");
-                // Perform a one-time update if auto-update is disabled
-                globalThis.location = await this.getLatestMap(eftInstallPath);
-                streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
-            }
         }
         async onKeyDown(ev) {
-            eftInstallPath = ev.payload.settings.eft_install_path;
+            eftInstallPath$1 = ev.payload.settings.eft_install_path;
             streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
-            streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
-            // Clear any existing interval to prevent multiple intervals from being created
+            streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath$1);
             if (intervalUpdateInterval) {
                 clearInterval(intervalUpdateInterval);
-                intervalUpdateInterval = null; // Reset the interval variable
+                intervalUpdateInterval = null;
             }
             if (ev.payload.settings.map_autoupdate_check) {
-                // Start a new interval if auto-update is enabled
                 intervalUpdateInterval = setInterval(async () => {
-                    globalThis.location = await this.getLatestMap(eftInstallPath);
+                    globalThis.location = await this.getLatestMap(eftInstallPath$1);
                     streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
                 }, 3000);
             }
             else {
-                // Clear the interval if it exists to stop auto-update
-                if (intervalUpdateInterval) {
-                    clearInterval(intervalUpdateInterval);
-                    intervalUpdateInterval = null; // Reset the interval variable
-                }
-                // Perform a one-time update if auto-update is disabled
-                globalThis.location = await this.getLatestMap(eftInstallPath);
+                globalThis.location = await this.getLatestMap(eftInstallPath$1);
                 streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
             }
             if (globalThis.location) {
@@ -8369,10 +8282,8 @@ let TarkovCurrentMapInfo = (() => {
         }
         async getLatestMap(path) {
             try {
-                let pathEFT = path;
-                const logsPath = `${pathEFT}\\Logs`;
+                const logsPath = `${path}\\Logs`;
                 streamDeck.logger.info("Using logs path:", logsPath);
-                // Read all folders in the EFT directory
                 const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
                 const logFolders = folders
                     .filter(f => f.isDirectory() && f.name.startsWith("log_"))
@@ -8380,30 +8291,26 @@ let TarkovCurrentMapInfo = (() => {
                     dirent: f,
                     timestamp: this.extractTimestamp(f.name)
                 }))
-                    .sort((a, b) => b.timestamp - a.timestamp) // Sort by timestamp descending
+                    .sort((a, b) => b.timestamp - a.timestamp)
                     .map(f => f.dirent);
                 if (logFolders.length === 0) {
                     streamDeck.logger.info("No log folders found");
                     return null;
                 }
-                // Get the most recent folder
                 const latestFolder = `${logsPath}\\${logFolders[0].name}`;
                 streamDeck.logger.info("Checking latest log folder:", latestFolder);
-                // Read all files in the latest log folder
                 const files = await fs$1.promises.readdir(latestFolder, { withFileTypes: true });
                 const logFiles = files
                     .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
-                    .sort((a, b) => b.name.localeCompare(a.name)); // Sort log files in descending order
+                    .sort((a, b) => b.name.localeCompare(a.name));
                 if (logFiles.length === 0) {
                     streamDeck.logger.info("No log files found in folder:", latestFolder);
                     return null;
                 }
-                // Read only the latest log file
                 const latestFile = `${latestFolder}\\${logFiles[0].name}`;
                 streamDeck.logger.info("Reading latest log file:", latestFile);
                 const content = await fs$1.promises.readFile(latestFile, "utf-8");
                 const lines = content.split("\n");
-                // Search each line in reverse order to find the latest map location
                 for (let i = lines.length - 1; i >= 0; i--) {
                     const match = lines[i].match(/Location:\s(\w+),/);
                     if (match) {
@@ -8415,26 +8322,22 @@ let TarkovCurrentMapInfo = (() => {
                 return null;
             }
             catch (error) {
-                streamDeck.logger.info("Error reading logs:", error);
+                streamDeck.logger.error("Error reading logs:", error);
                 return null;
             }
         }
         extractTimestamp(folderName) {
             try {
-                // Extract date and time parts from folder name
-                // Example format: log_2024.12.31_20-35-24_0.16.0.2.34501
                 const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
                 if (match) {
                     const [_, year, month, day, hour, minute, second] = match;
-                    // Create a Date object using the extracted components
-                    const date = new Date(parseInt(year), parseInt(month) - 1, // Months are 0-based in JavaScript
-                    parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+                    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
                     return date.getTime();
                 }
                 return 0;
             }
             catch (error) {
-                streamDeck.logger.info("Error parsing timestamp:", error);
+                streamDeck.logger.error("Error parsing timestamp:", error);
                 return 0;
             }
         }
@@ -8456,14 +8359,12 @@ let TarkovCurrentMapInfo = (() => {
                     return '';
             }
         }
-        // Update global settings when received
         onDidReceiveSettings(ev) {
             const { pve_map_mode_check, eft_install_path, map_autoupdate_check } = ev.payload.settings;
             globalThis.pve_map_mode_check = pve_map_mode_check;
             globalThis.eftInstallPath = eft_install_path;
             globalThis.map_autoupdate_check = map_autoupdate_check;
             streamDeck.logger.info("Received settings:", ev.payload.settings);
-            // Prepare the data to be updated
             const updatedData = {
                 global: {
                     eft_install_path,
@@ -8473,22 +8374,18 @@ let TarkovCurrentMapInfo = (() => {
                     map_autoupdate_check,
                 },
             };
-            // Define the path to the user_settings.json file
             const settingsFilePath = path$1.join(process.cwd(), 'user_settings.json');
-            // Read the existing file, update it, and save back
             fs$1.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
                 let existingData = {};
                 if (!readErr) {
                     try {
-                        existingData = JSON.parse(fileData); // Parse existing JSON
+                        existingData = JSON.parse(fileData);
                     }
                     catch (parseErr) {
                         streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
                     }
                 }
-                // Merge existing settings with the updated data
                 const mergedData = { ...existingData, ...updatedData };
-                // Write the merged data back to the file
                 fs$1.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
                     if (writeErr) {
                         streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
@@ -8637,6 +8534,134 @@ let TarkovCurrentMapInfo_BackToProfile = (() => {
         }
         async onKeyDown(ev) {
             streamDeck.profiles.switchToProfile(ev.action.device.id, undefined);
+        }
+    });
+    return _classThis;
+})();
+
+let eftInstallPath;
+let currentServerIP;
+let TarkovCurrentServerInfo = (() => {
+    let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.raidserver" })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = SingletonAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        async onWillAppear(ev) {
+            ev.action.setTitle(`Press to\nGet\nServer`);
+        }
+        async onKeyDown(ev) {
+            eftInstallPath = ev.payload.settings.eft_install_path;
+            streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
+            streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
+            currentServerIP = await this.getLatestIP(eftInstallPath);
+            if (currentServerIP) {
+                ev.action.setTitle(`IP: ${currentServerIP}`);
+            }
+            else {
+                ev.action.setTitle(`No\nIP\nFound`);
+            }
+        }
+        async getLatestIP(path) {
+            try {
+                const logsPath = `${path}\\Logs`;
+                streamDeck.logger.info("Using logs path:", logsPath);
+                const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
+                const logFolders = folders
+                    .filter(f => f.isDirectory() && f.name.startsWith("log_"))
+                    .map(f => ({
+                    dirent: f,
+                    timestamp: this.extractTimestamp(f.name)
+                }))
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .map(f => f.dirent);
+                if (logFolders.length === 0) {
+                    streamDeck.logger.info("No log folders found");
+                    return null;
+                }
+                const latestFolder = `${logsPath}\\${logFolders[0].name}`;
+                streamDeck.logger.info("Checking latest log folder:", latestFolder);
+                const files = await fs$1.promises.readdir(latestFolder, { withFileTypes: true });
+                const logFiles = files
+                    .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
+                    .sort((a, b) => b.name.localeCompare(a.name));
+                if (logFiles.length === 0) {
+                    streamDeck.logger.info("No log files found in folder:", latestFolder);
+                    return null;
+                }
+                const latestFile = `${latestFolder}\\${logFiles[0].name}`;
+                streamDeck.logger.info("Reading latest log file:", latestFile);
+                const content = await fs$1.promises.readFile(latestFile, "utf-8");
+                const lines = content.split("\n");
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const match = lines[i].match(/Ip:\s([\d\.]+),/);
+                    if (match) {
+                        streamDeck.logger.info("IP found:", match[1]);
+                        return match[1];
+                    }
+                }
+                streamDeck.logger.info("No IP found in latest file:", latestFile);
+                return null;
+            }
+            catch (error) {
+                streamDeck.logger.error("Error reading logs:", error);
+                return null;
+            }
+        }
+        extractTimestamp(folderName) {
+            try {
+                const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
+                if (match) {
+                    const [_, year, month, day, hour, minute, second] = match;
+                    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+                    return date.getTime();
+                }
+                return 0;
+            }
+            catch (error) {
+                streamDeck.logger.error("Error parsing timestamp:", error);
+                return 0;
+            }
+        }
+        onDidReceiveSettings(ev) {
+            const { eft_install_path } = ev.payload.settings;
+            globalThis.eftInstallPath = eft_install_path;
+            streamDeck.logger.info("Received settings:", ev.payload.settings);
+            const updatedData = {
+                global: {
+                    eft_install_path,
+                }
+            };
+            const settingsFilePath = path$1.join(process.cwd(), 'user_settings.json');
+            fs$1.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
+                let existingData = {};
+                if (!readErr) {
+                    try {
+                        existingData = JSON.parse(fileData);
+                    }
+                    catch (parseErr) {
+                        streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
+                    }
+                }
+                const mergedData = { ...existingData, ...updatedData };
+                fs$1.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
+                    if (writeErr) {
+                        streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
+                    }
+                    else {
+                        streamDeck.logger.info("Settings successfully updated in user_settings.json");
+                    }
+                });
+            });
         }
     });
     return _classThis;
@@ -9063,5 +9088,6 @@ streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Fourteenth());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Fifteenth());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Sixteenth());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_BackToProfile());
+streamDeck.actions.registerAction(new TarkovCurrentServerInfo());
 streamDeck.connect();
 //# sourceMappingURL=plugin.js.map
