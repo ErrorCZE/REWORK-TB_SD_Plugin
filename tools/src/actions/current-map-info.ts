@@ -77,7 +77,7 @@ async function refreshData(mode: 'PVE' | 'PVP'): Promise<void> {
             });
 
             globalThis[`locationsData${mode}`] = locationsData;
-            streamDeck.logger.info(`Processed ${mode} Map Data:`, locationsData);
+            streamDeck.logger.info(`Processed ${mode} Map Data`);
         }
     } catch (error) {
         streamDeck.logger.error(`Error fetching ${mode} data:`, error);
@@ -106,8 +106,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
         eftInstallPath = ev.payload.settings.eft_install_path;
-        streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
-        streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
+        streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
 
         if (intervalUpdateInterval) {
             clearInterval(intervalUpdateInterval);

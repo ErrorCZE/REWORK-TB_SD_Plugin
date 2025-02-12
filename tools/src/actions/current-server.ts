@@ -23,8 +23,7 @@ export class TarkovCurrentServerInfo extends SingletonAction {
 
 	override async onKeyDown(ev: KeyDownEvent): Promise<void> {
 		eftInstallPath = ev.payload.settings.eft_install_path;
-		streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
-		streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
+		streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
 
 		currentServerIP = await this.getLatestIP(eftInstallPath);
 

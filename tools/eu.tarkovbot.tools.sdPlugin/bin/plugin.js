@@ -8220,7 +8220,7 @@ async function refreshData(mode) {
                 };
             });
             globalThis[`locationsData${mode}`] = locationsData;
-            streamDeck.logger.info(`Processed ${mode} Map Data:`, locationsData);
+            streamDeck.logger.info(`Processed ${mode} Map Data`);
         }
     }
     catch (error) {
@@ -8256,8 +8256,7 @@ let TarkovCurrentMapInfo = (() => {
         }
         async onKeyDown(ev) {
             eftInstallPath$1 = ev.payload.settings.eft_install_path;
-            streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
-            streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath$1);
+            streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
             if (intervalUpdateInterval) {
                 clearInterval(intervalUpdateInterval);
                 intervalUpdateInterval = null;
@@ -8561,8 +8560,7 @@ let TarkovCurrentServerInfo = (() => {
         }
         async onKeyDown(ev) {
             eftInstallPath = ev.payload.settings.eft_install_path;
-            streamDeck.logger.info("Payload settings on keydown: " + ev.payload.settings);
-            streamDeck.logger.info("Install path from settings (keydown): " + eftInstallPath);
+            streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
             currentServerIP = await this.getLatestIP(eftInstallPath);
             if (currentServerIP) {
                 ev.action.setTitle(`IP: ${currentServerIP}`);
