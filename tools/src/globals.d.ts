@@ -7,7 +7,7 @@ declare global {
     var map_autoupdate_check: any;
     var eftInstallPath: any;
     var datacentersData: any;
-    var currentserver_autoupdate_check: any;
+    var raid_autoupdate_check: any;
 }
 
 export {}

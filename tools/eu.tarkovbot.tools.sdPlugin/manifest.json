@@ -1,6 +1,6 @@
 {
 	"Name": "Escape from Tarkov Tools",
-	"Version": "1.3.2.0",
+	"Version": "1.3.2.1",
 	"Author": "TarkovBOT.eu",
 	"Category": "Escape from Tarkov Tools",
 	"CategoryIcon": "assets/categoryicon",
@@ -156,7 +156,7 @@
 				{
 					"Image": "assets/empty_image",
 					"TitleAlignment": "middle",
-					"FontSize": 11
+					"FontSize": 9
 				}
 			],
 			"Encoder": {

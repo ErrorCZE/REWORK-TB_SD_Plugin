@@ -8235,7 +8235,7 @@ refreshData('PVP');
 setInterval(() => refreshData('PVE'), 1200000);
 setInterval(() => refreshData('PVP'), 1200000);
 let eftInstallPath$1;
-let intervalUpdateInterval;
+let intervalUpdateInterval$1;
 let TarkovCurrentMapInfo = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo" })];
     let _classDescriptor;
@@ -8257,12 +8257,12 @@ let TarkovCurrentMapInfo = (() => {
         async onKeyDown(ev) {
             eftInstallPath$1 = ev.payload.settings.eft_install_path;
             streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
-            if (intervalUpdateInterval) {
-                clearInterval(intervalUpdateInterval);
-                intervalUpdateInterval = null;
+            if (intervalUpdateInterval$1) {
+                clearInterval(intervalUpdateInterval$1);
+                intervalUpdateInterval$1 = null;
             }
             if (ev.payload.settings.map_autoupdate_check) {
-                intervalUpdateInterval = setInterval(async () => {
+                intervalUpdateInterval$1 = setInterval(async () => {
                     globalThis.location = await this.getLatestMap(eftInstallPath$1);
                     streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
                 }, 3000);
@@ -8539,7 +8539,25 @@ let TarkovCurrentMapInfo_BackToProfile = (() => {
 })();
 
 let eftInstallPath;
-let currentServerIP;
+let currentServerInfo;
+let intervalUpdateInterval;
+const datacenterAPI = "https://tarkovbot.eu/api/streamdeck/eft-datacenters";
+let datacenterData = {};
+async function refreshDatacenterData() {
+    try {
+        const response = await fetch(datacenterAPI);
+        const jsonData = await response.json();
+        if (jsonData && typeof jsonData === "object") {
+            datacenterData = jsonData;
+            streamDeck.logger.info("Datacenter list updated.");
+        }
+    }
+    catch (error) {
+        streamDeck.logger.error("Error fetching datacenter data:", error);
+    }
+}
+refreshDatacenterData();
+setInterval(refreshDatacenterData, 3600000);
 let TarkovCurrentServerInfo = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.raidserver" })];
     let _classDescriptor;
@@ -8559,14 +8577,36 @@ let TarkovCurrentServerInfo = (() => {
             ev.action.setTitle(`Press to\nGet\nServer`);
         }
         async onKeyDown(ev) {
+            ev.action.setTitle(`Loading...`);
             eftInstallPath = ev.payload.settings.eft_install_path;
             streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
-            currentServerIP = await this.getLatestIP(eftInstallPath);
-            if (currentServerIP) {
-                ev.action.setTitle(`IP: ${currentServerIP}`);
+            if (intervalUpdateInterval) {
+                clearInterval(intervalUpdateInterval);
+                intervalUpdateInterval = null;
+            }
+            if (ev.payload.settings.raid_autoupdate_check) {
+                intervalUpdateInterval = setInterval(async () => {
+                    currentServerInfo = await this.getLatestIP(eftInstallPath);
+                    streamDeck.logger.info("Auto-update interval triggered; IP:", currentServerInfo);
+                    if (currentServerInfo) {
+                        const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
+                        ev.action.setTitle(formattedDatacenter);
+                    }
+                    else {
+                        ev.action.setTitle(`No\nIP\nFound`);
+                    }
+                }, 3000);
             }
             else {
-                ev.action.setTitle(`No\nIP\nFound`);
+                currentServerInfo = await this.getLatestIP(eftInstallPath);
+                streamDeck.logger.info("Auto-update disabled; IP:", currentServerInfo);
+                if (currentServerInfo) {
+                    const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
+                    ev.action.setTitle(formattedDatacenter);
+                }
+                else {
+                    ev.action.setTitle(`No\nIP\nFound`);
+                }
             }
         }
         async getLatestIP(path) {
@@ -8603,8 +8643,19 @@ let TarkovCurrentServerInfo = (() => {
                 for (let i = lines.length - 1; i >= 0; i--) {
                     const match = lines[i].match(/Ip:\s([\d\.]+),/);
                     if (match) {
-                        streamDeck.logger.info("IP found:", match[1]);
-                        return match[1];
+                        const ip = match[1];
+                        streamDeck.logger.info("IP found:", ip);
+                        // Find corresponding datacenter
+                        let datacenterName = "Unknown";
+                        for (const region in datacenterData) {
+                            for (const dc of datacenterData[region]) {
+                                if (dc.unique_ips.includes(ip)) {
+                                    datacenterName = dc.datacenter;
+                                    break;
+                                }
+                            }
+                        }
+                        return { ip, datacenter: datacenterName };
                     }
                 }
                 streamDeck.logger.info("No IP found in latest file:", latestFile);
@@ -8631,13 +8682,17 @@ let TarkovCurrentServerInfo = (() => {
             }
         }
         onDidReceiveSettings(ev) {
-            const { eft_install_path } = ev.payload.settings;
+            const { eft_install_path, raid_autoupdate_check } = ev.payload.settings;
             globalThis.eftInstallPath = eft_install_path;
+            globalThis.raid_autoupdate_check = raid_autoupdate_check;
             streamDeck.logger.info("Received settings:", ev.payload.settings);
             const updatedData = {
                 global: {
                     eft_install_path,
-                }
+                },
+                current_server_info: {
+                    raid_autoupdate_check,
+                },
             };
             const settingsFilePath = path$1.join(process.cwd(), 'user_settings.json');
             fs$1.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
