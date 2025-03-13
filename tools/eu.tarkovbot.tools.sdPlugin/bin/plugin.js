@@ -8395,12 +8395,6 @@ let TarkovCurrentMapInfo = (() => {
                 });
             });
         }
-        async onWillDisappear(ev) {
-            if (intervalUpdateInterval$5) {
-                clearInterval(intervalUpdateInterval$5);
-                intervalUpdateInterval$5 = null;
-            }
-        }
     });
     return _classThis;
 })();
@@ -8874,6 +8868,7 @@ const settingsFilePath = path$1.join(process.cwd(), "user_settings.json");
 let map_autoupdate_check = false;
 let pve_map_mode_check = false;
 let intervalUpdateInterval = null;
+let lastPveMode = null;
 // Global variables to track map changes for all boss instances
 let currentGlobalLocationId = null;
 let lastImageFetchMap = null;
@@ -8964,6 +8959,16 @@ let TarkovCurrentMapInfo_Boss = (() => {
             ev.action.setImage("");
         }
         async updateBossInfo(ev) {
+            // Reload settings on each update to detect changes
+            loadSettings();
+            // Check if PVE mode has changed
+            if (lastPveMode !== pve_map_mode_check) {
+                streamDeck.logger.info(`PVE mode changed from ${lastPveMode} to ${pve_map_mode_check}`);
+                // Reset image cache when PVE mode changes
+                lastImageFetchMap = null;
+                bossImageCache = {};
+                lastPveMode = pve_map_mode_check;
+            }
             // Always start with a clear display when map changes
             if (currentGlobalLocationId !== globalThis.location) {
                 this.clearBossDisplay(ev);

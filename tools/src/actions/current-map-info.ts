@@ -270,11 +270,5 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             });
         });
     }
-
-    override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
-        if (intervalUpdateInterval) {
-            clearInterval(intervalUpdateInterval);
-            intervalUpdateInterval = null;
-        }
-    }   
+ 
 }

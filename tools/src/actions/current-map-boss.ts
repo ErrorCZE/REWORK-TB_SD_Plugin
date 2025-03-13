@@ -14,6 +14,7 @@ const settingsFilePath = path.join(process.cwd(), "user_settings.json");
 let map_autoupdate_check = false;
 let pve_map_mode_check = false;
 let intervalUpdateInterval: NodeJS.Timeout | null = null;
+let lastPveMode: boolean | null = null;
 
 // Global variables to track map changes for all boss instances
 let currentGlobalLocationId: string | null = null;
@@ -55,38 +56,38 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
         streamDeck.logger.info(`Boss ${this.bossIndex} instance appearing`);
         this.activeInstance = true;
-        
+
         // Clear display on initial appearance
         this.clearBossDisplay(ev);
-        
+
         // Check if this is the first active boss instance
         if (intervalUpdateInterval === null && map_autoupdate_check) {
             // Initialize the global map tracking
             currentGlobalLocationId = globalThis.location;
-            
+
             // Set up the global update interval that will handle map changes
             intervalUpdateInterval = setInterval(() => {
                 const newLocationId = globalThis.location;
-                
+
                 // Check if map has changed
                 if (newLocationId !== currentGlobalLocationId) {
                     streamDeck.logger.info(`Map changed from ${currentGlobalLocationId} to ${newLocationId}`);
-                    
+
                     // Clear the image cache when map changes
                     bossImageCache = {};
                     lastImageFetchMap = null;
-                    
+
                     // Update the current global location
                     currentGlobalLocationId = newLocationId;
                 }
             }, 3000); // Check for map changes every 3 seconds
-            
+
             streamDeck.logger.info("Global map change detection enabled");
         }
-        
+
         // Initial update
         await this.updateBossInfo(ev);
-        
+
         // Set individual update timer
         const instanceInterval = setInterval(async () => {
             if (!this.activeInstance) {
@@ -101,7 +102,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         streamDeck.logger.info(`Boss ${this.bossIndex} instance disappearing`);
         this.activeInstance = false;
     }
-    
+
     // Helper method to clear the display
     private clearBossDisplay(ev: WillAppearEvent): void {
         ev.action.setTitle("");
@@ -109,14 +110,26 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
     }
 
     private async updateBossInfo(ev: WillAppearEvent): Promise<void> {
+        // Reload settings on each update to detect changes
+        loadSettings();
+
+        // Check if PVE mode has changed
+    if (lastPveMode !== pve_map_mode_check) {
+        streamDeck.logger.info(`PVE mode changed from ${lastPveMode} to ${pve_map_mode_check}`);
+        // Reset image cache when PVE mode changes
+        lastImageFetchMap = null;
+        bossImageCache = {};
+        lastPveMode = pve_map_mode_check;
+    }
+
         // Always start with a clear display when map changes
         if (currentGlobalLocationId !== globalThis.location) {
             this.clearBossDisplay(ev);
             return;
         }
-        
+
         const locationId = globalThis.location;
-        
+
         // Do nothing if location is not available
         if (!locationId) {
             ev.action.setTitle("\nUnknown\nLocation");
@@ -163,7 +176,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
             if (!bossImageCache[boss.id]) {
                 const imageUrl = `https://tarkovbot.eu/streamdeck/img/${boss.id}.webp`;
                 const fallbackUrl = `https://tarkovbot.eu/streamdeck/img/unknown_boss.webp`;
-                
+
                 try {
                     const base64Image = await this.fetchBase64Image(imageUrl, fallbackUrl);
                     if (base64Image) {
@@ -174,7 +187,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
                     streamDeck.logger.error(`Error fetching boss image for ${boss.id}:`, error);
                 }
             }
-            
+
             // Update that we've fetched images for this map
             if (bossImageCache[boss.id]) {
                 ev.action.setImage(bossImageCache[boss.id]);
@@ -183,7 +196,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
             // Use cached image if we have it
             ev.action.setImage(bossImageCache[boss.id]);
         }
-        
+
         // Record that we've fetched images for this map
         lastImageFetchMap = locationId;
     }
