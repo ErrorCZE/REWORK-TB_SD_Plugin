@@ -8235,7 +8235,7 @@ refreshData('PVP');
 setInterval(() => refreshData('PVE'), 1200000);
 setInterval(() => refreshData('PVP'), 1200000);
 let eftInstallPath$1;
-let intervalUpdateInterval$1;
+let intervalUpdateInterval$5;
 let TarkovCurrentMapInfo = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo" })];
     let _classDescriptor;
@@ -8257,12 +8257,12 @@ let TarkovCurrentMapInfo = (() => {
         async onKeyDown(ev) {
             eftInstallPath$1 = ev.payload.settings.eft_install_path;
             streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
-            if (intervalUpdateInterval$1) {
-                clearInterval(intervalUpdateInterval$1);
-                intervalUpdateInterval$1 = null;
+            if (intervalUpdateInterval$5) {
+                clearInterval(intervalUpdateInterval$5);
+                intervalUpdateInterval$5 = null;
             }
             if (ev.payload.settings.map_autoupdate_check) {
-                intervalUpdateInterval$1 = setInterval(async () => {
+                intervalUpdateInterval$5 = setInterval(async () => {
                     globalThis.location = await this.getLatestMap(eftInstallPath$1);
                     streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
                 }, 3000);
@@ -8399,6 +8399,30 @@ let TarkovCurrentMapInfo = (() => {
     return _classThis;
 })();
 
+const settingsFilePath$3 = path$1.join(process.cwd(), "user_settings.json");
+let map_autoupdate_check$3 = false;
+let pve_map_mode_check$3 = false;
+let intervalUpdateInterval$4 = null;
+// Load settings from user_settings.json
+function loadSettings$3() {
+    try {
+        if (fs$1.existsSync(settingsFilePath$3)) {
+            const fileData = fs$1.readFileSync(settingsFilePath$3, "utf8");
+            const settings = JSON.parse(fileData);
+            map_autoupdate_check$3 = settings.current_map_info?.map_autoupdate_check || false;
+            pve_map_mode_check$3 = settings.current_map_info?.pve_map_mode_check || false;
+            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
+        }
+        else {
+            streamDeck.logger.info("user_settings.json not found, using defaults.");
+        }
+    }
+    catch (error) {
+        streamDeck.logger.error("Error loading settings:", error);
+    }
+}
+// Load settings on startup
+loadSettings$3();
 let TarkovCurrentMapInfo_Name = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.name" })];
     let _classDescriptor;
@@ -8414,12 +8438,34 @@ let TarkovCurrentMapInfo_Name = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onWillAppear(ev) {
-            const pveMode = globalThis.pve_map_mode_check;
+        async onWillAppear(ev) {
+            streamDeck.logger.info("onWillAppear triggered for Map Name.");
+            this.updateMapName(ev);
+            if (intervalUpdateInterval$4) {
+                clearInterval(intervalUpdateInterval$4);
+                intervalUpdateInterval$4 = null;
+            }
+            if (map_autoupdate_check$3) {
+                intervalUpdateInterval$4 = setInterval(() => this.updateMapName(ev), 5000);
+                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
+            }
+            else {
+                streamDeck.logger.info("Auto-update is disabled.");
+            }
+        }
+        onWillDisappear(ev) {
+            if (intervalUpdateInterval$4) {
+                clearInterval(intervalUpdateInterval$4);
+                intervalUpdateInterval$4 = null;
+                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
+            }
+        }
+        updateMapName(ev) {
             const locationId = globalThis.location;
+            ev.action.setTitle("");
             if (locationId) {
-                // Use PvE data if pveMode is true; otherwise, use PvP data
-                const mapData = pveMode
+                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
+                const mapData = pve_map_mode_check$3
                     ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                     : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
                 if (mapData) {
@@ -8437,6 +8483,30 @@ let TarkovCurrentMapInfo_Name = (() => {
     return _classThis;
 })();
 
+const settingsFilePath$2 = path$1.join(process.cwd(), "user_settings.json");
+let map_autoupdate_check$2 = false;
+let pve_map_mode_check$2 = false;
+let intervalUpdateInterval$3 = null;
+// Load settings from user_settings.json
+function loadSettings$2() {
+    try {
+        if (fs$1.existsSync(settingsFilePath$2)) {
+            const fileData = fs$1.readFileSync(settingsFilePath$2, "utf8");
+            const settings = JSON.parse(fileData);
+            map_autoupdate_check$2 = settings.current_map_info?.map_autoupdate_check || false;
+            pve_map_mode_check$2 = settings.current_map_info?.pve_map_mode_check || false;
+            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
+        }
+        else {
+            streamDeck.logger.info("user_settings.json not found, using defaults.");
+        }
+    }
+    catch (error) {
+        streamDeck.logger.error("Error loading settings:", error);
+    }
+}
+// Load settings on startup
+loadSettings$2();
 let TarkovCurrentMapInfo_Duration = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.raidduration" })];
     let _classDescriptor;
@@ -8452,12 +8522,34 @@ let TarkovCurrentMapInfo_Duration = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onWillAppear(ev) {
-            const pveMode = globalThis.pve_map_mode_check;
+        async onWillAppear(ev) {
+            streamDeck.logger.info("onWillAppear triggered for Raid Duration.");
+            this.updateRaidDuration(ev);
+            if (intervalUpdateInterval$3) {
+                clearInterval(intervalUpdateInterval$3);
+                intervalUpdateInterval$3 = null;
+            }
+            if (map_autoupdate_check$2) {
+                intervalUpdateInterval$3 = setInterval(() => this.updateRaidDuration(ev), 5000);
+                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
+            }
+            else {
+                streamDeck.logger.info("Auto-update is disabled.");
+            }
+        }
+        onWillDisappear(ev) {
+            if (intervalUpdateInterval$3) {
+                clearInterval(intervalUpdateInterval$3);
+                intervalUpdateInterval$3 = null;
+                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
+            }
+        }
+        updateRaidDuration(ev) {
             const locationId = globalThis.location;
+            ev.action.setTitle("");
             if (locationId) {
-                // Use PvE data if pveMode is true; otherwise, use PvP data
-                const mapData = pveMode
+                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
+                const mapData = pve_map_mode_check$2
                     ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                     : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
                 if (mapData) {
@@ -8475,6 +8567,30 @@ let TarkovCurrentMapInfo_Duration = (() => {
     return _classThis;
 })();
 
+const settingsFilePath$1 = path$1.join(process.cwd(), "user_settings.json");
+let map_autoupdate_check$1 = false;
+let pve_map_mode_check$1 = false;
+let intervalUpdateInterval$2 = null;
+// Load settings from user_settings.json
+function loadSettings$1() {
+    try {
+        if (fs$1.existsSync(settingsFilePath$1)) {
+            const fileData = fs$1.readFileSync(settingsFilePath$1, "utf8");
+            const settings = JSON.parse(fileData);
+            map_autoupdate_check$1 = settings.current_map_info?.map_autoupdate_check || false;
+            pve_map_mode_check$1 = settings.current_map_info?.pve_map_mode_check || false;
+            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
+        }
+        else {
+            streamDeck.logger.info("user_settings.json not found, using defaults.");
+        }
+    }
+    catch (error) {
+        streamDeck.logger.error("Error loading settings:", error);
+    }
+}
+// Load settings on startup
+loadSettings$1();
 let TarkovCurrentMapInfo_Players = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.playercount" })];
     let _classDescriptor;
@@ -8490,12 +8606,34 @@ let TarkovCurrentMapInfo_Players = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onWillAppear(ev) {
-            const pveMode = globalThis.pve_map_mode_check;
+        async onWillAppear(ev) {
+            streamDeck.logger.info("onWillAppear triggered for Player Count.");
+            this.updatePlayerCount(ev);
+            if (intervalUpdateInterval$2) {
+                clearInterval(intervalUpdateInterval$2);
+                intervalUpdateInterval$2 = null;
+            }
+            if (map_autoupdate_check$1) {
+                intervalUpdateInterval$2 = setInterval(() => this.updatePlayerCount(ev), 5000);
+                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
+            }
+            else {
+                streamDeck.logger.info("Auto-update is disabled.");
+            }
+        }
+        onWillDisappear(ev) {
+            if (intervalUpdateInterval$2) {
+                clearInterval(intervalUpdateInterval$2);
+                intervalUpdateInterval$2 = null;
+                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
+            }
+        }
+        updatePlayerCount(ev) {
             const locationId = globalThis.location;
+            ev.action.setTitle("");
             if (locationId) {
-                // Use PvE data if pveMode is true; otherwise, use PvP data
-                const mapData = pveMode
+                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
+                const mapData = pve_map_mode_check$1
                     ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                     : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
                 if (mapData) {
@@ -8540,7 +8678,7 @@ let TarkovCurrentMapInfo_BackToProfile = (() => {
 
 let eftInstallPath;
 let currentServerInfo;
-let intervalUpdateInterval;
+let intervalUpdateInterval$1;
 const datacenterAPI = "https://tarkovbot.eu/api/streamdeck/eft-datacenters";
 let datacenterData = {};
 async function refreshDatacenterData() {
@@ -8580,12 +8718,12 @@ let TarkovCurrentServerInfo = (() => {
             ev.action.setTitle(`Loading...`);
             eftInstallPath = ev.payload.settings.eft_install_path;
             streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
-            if (intervalUpdateInterval) {
-                clearInterval(intervalUpdateInterval);
-                intervalUpdateInterval = null;
+            if (intervalUpdateInterval$1) {
+                clearInterval(intervalUpdateInterval$1);
+                intervalUpdateInterval$1 = null;
             }
             if (ev.payload.settings.raid_autoupdate_check) {
-                intervalUpdateInterval = setInterval(async () => {
+                intervalUpdateInterval$1 = setInterval(async () => {
                     currentServerInfo = await this.getLatestIP(eftInstallPath);
                     streamDeck.logger.info("Auto-update interval triggered; IP:", currentServerInfo);
                     if (currentServerInfo) {
@@ -8716,66 +8854,199 @@ let TarkovCurrentServerInfo = (() => {
                 });
             });
         }
+        onWillDisappear(ev) {
+            if (intervalUpdateInterval$1) {
+                clearInterval(intervalUpdateInterval$1);
+                intervalUpdateInterval$1 = null;
+            }
+        }
     });
     return _classThis;
 })();
 
-// Base class for Boss Info
-class TarkovCurrentMapInfo_Boss extends SingletonAction {
-    bossIndex;
-    constructor(bossIndex) {
-        super();
-        this.bossIndex = bossIndex;
-    }
-    async onWillAppear(ev) {
-        const pveMode = globalThis.pve_map_mode_check;
-        const locationId = globalThis.location;
-        ev.action.setTitle("");
-        ev.action.setImage("");
-        if (locationId) {
-            // Select PvE or PvP data based on the pveMode value
-            const mapData = pveMode
-                ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
-                : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
-            if (mapData) {
-                const boss = mapData.bosses[this.bossIndex];
-                if (boss) {
-                    const bossNameWords = boss.name.split(" ");
-                    let bossNameFormatted = bossNameWords.join("\n");
-                    if (bossNameFormatted === "Knight")
-                        bossNameFormatted = "Goons";
-                    if (bossNameFormatted === "Cultist\nPriest")
-                        bossNameFormatted = "Cultists";
-                    // Set title with boss name and spawn chance based on word count
-                    ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
-                    // Define image URLs
-                    const imageUrl = `https://tarkovbot.eu/streamdeck/img/${boss.id}.webp`;
-                    const fallbackUrl = `https://tarkovbot.eu/streamdeck/img/unknown_boss.webp`;
-                    // Fetch and set the image
-                    const base64Image = await this.fetchBase64Image(imageUrl, fallbackUrl);
-                    if (base64Image) {
-                        ev.action.setImage(base64Image);
-                    }
-                }
-            }
+const settingsFilePath = path$1.join(process.cwd(), "user_settings.json");
+let map_autoupdate_check = false;
+let pve_map_mode_check = false;
+let intervalUpdateInterval = null;
+// Global variables to track map changes for all boss instances
+let currentGlobalLocationId = null;
+let lastImageFetchMap = null;
+let bossImageCache = {};
+// Load settings from user_settings.json
+function loadSettings() {
+    try {
+        if (fs$1.existsSync(settingsFilePath)) {
+            const fileData = fs$1.readFileSync(settingsFilePath, "utf8");
+            const settings = JSON.parse(fileData);
+            map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
+            pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
+            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
+        }
+        else {
+            streamDeck.logger.info("user_settings.json not found, using defaults.");
         }
     }
-    async fetchBase64Image(url, fallbackUrl) {
-        try {
-            let response = await fetch(url);
-            if (!response.ok && fallbackUrl) {
-                response = await fetch(fallbackUrl);
-            }
-            const arrayBuffer = await response.arrayBuffer();
-            const base64String = Buffer.from(arrayBuffer).toString('base64');
-            return `data:image/webp;base64,${base64String}`;
-        }
-        catch (error) {
-            streamDeck.logger.info("Failed to fetch and convert image to Base64:", error);
-            return null;
-        }
+    catch (error) {
+        streamDeck.logger.error("Error loading settings:", error);
     }
 }
+// Load settings on startup
+loadSettings();
+let TarkovCurrentMapInfo_Boss = (() => {
+    let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.boss" })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = SingletonAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        bossIndex;
+        activeInstance = false;
+        constructor(bossIndex) {
+            super();
+            this.bossIndex = bossIndex;
+        }
+        async onWillAppear(ev) {
+            streamDeck.logger.info(`Boss ${this.bossIndex} instance appearing`);
+            this.activeInstance = true;
+            // Clear display on initial appearance
+            this.clearBossDisplay(ev);
+            // Check if this is the first active boss instance
+            if (intervalUpdateInterval === null && map_autoupdate_check) {
+                // Initialize the global map tracking
+                currentGlobalLocationId = globalThis.location;
+                // Set up the global update interval that will handle map changes
+                intervalUpdateInterval = setInterval(() => {
+                    const newLocationId = globalThis.location;
+                    // Check if map has changed
+                    if (newLocationId !== currentGlobalLocationId) {
+                        streamDeck.logger.info(`Map changed from ${currentGlobalLocationId} to ${newLocationId}`);
+                        // Clear the image cache when map changes
+                        bossImageCache = {};
+                        lastImageFetchMap = null;
+                        // Update the current global location
+                        currentGlobalLocationId = newLocationId;
+                    }
+                }, 3000); // Check for map changes every 3 seconds
+                streamDeck.logger.info("Global map change detection enabled");
+            }
+            // Initial update
+            await this.updateBossInfo(ev);
+            // Set individual update timer
+            const instanceInterval = setInterval(async () => {
+                if (!this.activeInstance) {
+                    clearInterval(instanceInterval);
+                    return;
+                }
+                await this.updateBossInfo(ev);
+            }, 5000);
+        }
+        onWillDisappear(ev) {
+            streamDeck.logger.info(`Boss ${this.bossIndex} instance disappearing`);
+            this.activeInstance = false;
+        }
+        // Helper method to clear the display
+        clearBossDisplay(ev) {
+            ev.action.setTitle("");
+            ev.action.setImage("");
+        }
+        async updateBossInfo(ev) {
+            // Always start with a clear display when map changes
+            if (currentGlobalLocationId !== globalThis.location) {
+                this.clearBossDisplay(ev);
+                return;
+            }
+            const locationId = globalThis.location;
+            // Do nothing if location is not available
+            if (!locationId) {
+                ev.action.setTitle("\nUnknown\nLocation");
+                return;
+            }
+            // Get the correct map data source based on settings
+            const mapData = pve_map_mode_check
+                ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
+                : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+            // Handle no map data case
+            if (!mapData) {
+                ev.action.setTitle("\nNo Map\nData");
+                return;
+            }
+            // Check if bosses array exists and has enough elements
+            if (!mapData.bosses || this.bossIndex >= mapData.bosses.length) {
+                // Clear any previous boss display if this boss index doesn't exist for current map
+                this.clearBossDisplay(ev);
+                return;
+            }
+            // Get boss data for this index
+            const boss = mapData.bosses[this.bossIndex];
+            if (!boss) {
+                this.clearBossDisplay(ev);
+                return;
+            }
+            // Format boss name
+            let bossNameFormatted = boss.name.split(" ").join("\n");
+            if (bossNameFormatted === "Knight")
+                bossNameFormatted = "Goons";
+            if (bossNameFormatted === "Cultist\nPriest")
+                bossNameFormatted = "Cultists";
+            // Set title
+            ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
+            // Only fetch images when the map has changed
+            if (locationId !== lastImageFetchMap) {
+                // Check if we have this boss image in cache
+                if (!bossImageCache[boss.id]) {
+                    const imageUrl = `https://tarkovbot.eu/streamdeck/img/${boss.id}.webp`;
+                    const fallbackUrl = `https://tarkovbot.eu/streamdeck/img/unknown_boss.webp`;
+                    try {
+                        const base64Image = await this.fetchBase64Image(imageUrl, fallbackUrl);
+                        if (base64Image) {
+                            // Store in cache
+                            bossImageCache[boss.id] = base64Image;
+                        }
+                    }
+                    catch (error) {
+                        streamDeck.logger.error(`Error fetching boss image for ${boss.id}:`, error);
+                    }
+                }
+                // Update that we've fetched images for this map
+                if (bossImageCache[boss.id]) {
+                    ev.action.setImage(bossImageCache[boss.id]);
+                }
+            }
+            else if (bossImageCache[boss.id]) {
+                // Use cached image if we have it
+                ev.action.setImage(bossImageCache[boss.id]);
+            }
+            // Record that we've fetched images for this map
+            lastImageFetchMap = locationId;
+        }
+        async fetchBase64Image(url, fallbackUrl) {
+            try {
+                let response = await fetch(url);
+                if (!response.ok && fallbackUrl) {
+                    response = await fetch(fallbackUrl);
+                }
+                if (!response.ok) {
+                    return null;
+                }
+                const arrayBuffer = await response.arrayBuffer();
+                return `data:image/webp;base64,${Buffer.from(arrayBuffer).toString("base64")}`;
+            }
+            catch (error) {
+                streamDeck.logger.error("Failed to fetch image:", error);
+                return null;
+            }
+        }
+    });
+    return _classThis;
+})();
 
 let TarkovCurrentMapInfo_Boss_First = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.bossinfo0" })];

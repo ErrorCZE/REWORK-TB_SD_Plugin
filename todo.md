@@ -1,1 +1,2 @@
 - U mapy přidat možnost nastavit si vlastní cestu do EFT pro logy
+- Detekce serveru/data centra - vypnout aktualizaci, když není tlačítko vidět

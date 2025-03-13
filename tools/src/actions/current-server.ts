@@ -4,7 +4,8 @@ import {
     SingletonAction,
     WillAppearEvent,
     KeyDownEvent,
-    DidReceiveSettingsEvent
+    DidReceiveSettingsEvent,
+    WillDisappearEvent,
 } from "@elgato/streamdeck";
 import fs from "fs";
 import path from "path";
@@ -209,5 +210,12 @@ export class TarkovCurrentServerInfo extends SingletonAction {
                 }
             });
         });
+    }
+
+    override onWillDisappear(ev: WillDisappearEvent): void | Promise<void> {
+        if (intervalUpdateInterval) {
+            clearInterval(intervalUpdateInterval);
+            intervalUpdateInterval = null;
+        }
     }
 }
