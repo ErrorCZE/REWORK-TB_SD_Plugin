@@ -8004,7 +8004,7 @@ let TarkovGoonsLocation = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         onWillAppear(ev) {
-            ev.action.setTitle(`Press to\nGet\nLocation`);
+            ev.action.setTitle(`Press to\nGet Goons\nLocation`);
         }
         ;
         async onKeyDown(ev) {
@@ -8033,14 +8033,18 @@ let TarkovGoonsLocation = (() => {
                     return;
                 }
                 const goonsData = await response.json();
-                let location = selectedGoonsSource === "NEW" ? goonsData.location : (selectedGoonsSource === "PVP" ? goonsData.pvp.location : goonsData.pve.location);
-                let reported = new Date(selectedGoonsSource === "NEW" ? goonsData.reported : (selectedGoonsSource === "PVP" ? goonsData.pvp.reported : goonsData.pve.reported));
+                let location = selectedGoonsSource === "NEW" ? goonsData.pvp.location : (selectedGoonsSource === "PVP" ? goonsData.pvp.location : goonsData.pve.location);
+                let reported = new Date(selectedGoonsSource === "NEW" ? goonsData.pvp.reported : (selectedGoonsSource === "PVP" ? goonsData.pvp.reported : goonsData.pve.reported));
                 let timeDiff = Math.floor((Date.now() - reported.getTime()) / 1000);
                 let hours = Math.floor(timeDiff / 3600);
                 let minutes = Math.floor((timeDiff % 3600) / 60);
                 let seconds = timeDiff % 60;
                 let reportedFormatted = `${hours > 0 ? `${hours}h ` : ''}${minutes > 0 ? `${minutes % 60}m ` : ''}${seconds % 60}s`;
                 ev.action.setTitle(`${location}\n${reportedFormatted}`);
+                // Wait 5 seconds and then set title again to press
+                setTimeout(() => {
+                    ev.action.setTitle(`Press to\nGet Goons\nLocation`);
+                }, 5000);
             }
             catch (error) {
                 ev.action.setTitle(`Something\nWent\nWrong.`);
@@ -8741,6 +8745,10 @@ let TarkovCurrentServerInfo = (() => {
                 if (currentServerInfo) {
                     const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
                     ev.action.setTitle(formattedDatacenter);
+                    // Wait 5 seconds and then set title again to press
+                    setTimeout(() => {
+                        ev.action.setTitle(`Press to\nGet\nServer`);
+                    }, 5000);
                 }
                 else {
                     ev.action.setTitle(`No\nIP\nFound`);

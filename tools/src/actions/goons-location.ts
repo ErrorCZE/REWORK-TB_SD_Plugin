@@ -19,7 +19,7 @@ interface GoonsData {
 export class TarkovGoonsLocation extends SingletonAction {
 
     override onWillAppear(ev: WillAppearEvent): void | Promise<void> {
-        ev.action.setTitle(`Press to\nGet\nLocation`);
+        ev.action.setTitle(`Press to\nGet Goons\nLocation`);
     };
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
@@ -55,8 +55,8 @@ export class TarkovGoonsLocation extends SingletonAction {
             }
 
             const goonsData = await response.json() as GoonsData;
-            let location = selectedGoonsSource === "NEW" ? goonsData.location : (selectedGoonsSource === "PVP" ? goonsData.pvp.location : goonsData.pve.location);
-            let reported = new Date(selectedGoonsSource === "NEW" ? goonsData.reported : (selectedGoonsSource === "PVP" ? goonsData.pvp.reported : goonsData.pve.reported));
+            let location = selectedGoonsSource === "NEW" ? goonsData.pvp.location : (selectedGoonsSource === "PVP" ? goonsData.pvp.location : goonsData.pve.location);
+            let reported = new Date(selectedGoonsSource === "NEW" ? goonsData.pvp.reported : (selectedGoonsSource === "PVP" ? goonsData.pvp.reported : goonsData.pve.reported));
 
             let timeDiff = Math.floor((Date.now() - reported.getTime()) / 1000);
 
@@ -67,6 +67,11 @@ export class TarkovGoonsLocation extends SingletonAction {
             let reportedFormatted = `${hours > 0 ? `${hours}h ` : ''}${minutes > 0 ? `${minutes % 60}m ` : ''}${seconds % 60}s`;
 
             ev.action.setTitle(`${location}\n${reportedFormatted}`);
+
+            // Wait 5 seconds and then set title again to press
+            setTimeout(() => {
+                ev.action.setTitle(`Press to\nGet Goons\nLocation`);
+            }, 5000)
 
         } catch (error) {
             ev.action.setTitle(`Something\nWent\nWrong.`);

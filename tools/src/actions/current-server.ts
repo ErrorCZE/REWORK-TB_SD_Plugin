@@ -74,6 +74,10 @@ export class TarkovCurrentServerInfo extends SingletonAction {
             if (currentServerInfo) {
                 const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
                 ev.action.setTitle(formattedDatacenter);
+                // Wait 5 seconds and then set title again to press
+                setTimeout(() => {
+                    ev.action.setTitle(`Press to\nGet\nServer`);
+                }, 5000)
             } else {
                 ev.action.setTitle(`No\nIP\nFound`);
             }
