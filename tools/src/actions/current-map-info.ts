@@ -113,13 +113,14 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             intervalUpdateInterval = null;
         }
 
+        globalThis.location = await this.getLatestMap(eftInstallPath);
+
         if (ev.payload.settings.map_autoupdate_check) {
             intervalUpdateInterval = setInterval(async () => {
                 globalThis.location = await this.getLatestMap(eftInstallPath);
                 streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
             }, 3000);
         } else {
-            globalThis.location = await this.getLatestMap(eftInstallPath);
             streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
         }
 
@@ -269,4 +270,11 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             });
         });
     }
+
+    override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
+        if (intervalUpdateInterval) {
+            clearInterval(intervalUpdateInterval);
+            intervalUpdateInterval = null;
+        }
+    }   
 }

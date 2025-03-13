@@ -8261,6 +8261,7 @@ let TarkovCurrentMapInfo = (() => {
                 clearInterval(intervalUpdateInterval$5);
                 intervalUpdateInterval$5 = null;
             }
+            globalThis.location = await this.getLatestMap(eftInstallPath$1);
             if (ev.payload.settings.map_autoupdate_check) {
                 intervalUpdateInterval$5 = setInterval(async () => {
                     globalThis.location = await this.getLatestMap(eftInstallPath$1);
@@ -8268,7 +8269,6 @@ let TarkovCurrentMapInfo = (() => {
                 }, 3000);
             }
             else {
-                globalThis.location = await this.getLatestMap(eftInstallPath$1);
                 streamDeck.logger.info("Auto-update disabled; location:", globalThis.location);
             }
             if (globalThis.location) {
@@ -8394,6 +8394,12 @@ let TarkovCurrentMapInfo = (() => {
                     }
                 });
             });
+        }
+        async onWillDisappear(ev) {
+            if (intervalUpdateInterval$5) {
+                clearInterval(intervalUpdateInterval$5);
+                intervalUpdateInterval$5 = null;
+            }
         }
     });
     return _classThis;
