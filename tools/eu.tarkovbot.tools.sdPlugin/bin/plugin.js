@@ -8167,7 +8167,6 @@ let TarkovTraderRestock = (() => {
             const actionId = ev.action.id;
             if (!settings.selectedTrader) {
                 ev.action.setTitle("Select\nTrader");
-                return;
             }
             ev.action.setImage(`assets/${settings.selectedTrader}.png`);
             this.startUpdating(ev.action, settings, actionId);
@@ -8238,8 +8237,8 @@ refreshData('PVE');
 refreshData('PVP');
 setInterval(() => refreshData('PVE'), 1200000);
 setInterval(() => refreshData('PVP'), 1200000);
-let eftInstallPath$1;
-let intervalUpdateInterval$5;
+let eftInstallPath$2;
+let intervalUpdateInterval$6;
 let TarkovCurrentMapInfo = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo" })];
     let _classDescriptor;
@@ -8259,16 +8258,16 @@ let TarkovCurrentMapInfo = (() => {
             ev.action.setTitle(`Press to\nGet\nMap Info`);
         }
         async onKeyDown(ev) {
-            eftInstallPath$1 = ev.payload.settings.eft_install_path;
+            eftInstallPath$2 = ev.payload.settings.eft_install_path;
             streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
-            if (intervalUpdateInterval$5) {
-                clearInterval(intervalUpdateInterval$5);
-                intervalUpdateInterval$5 = null;
+            if (intervalUpdateInterval$6) {
+                clearInterval(intervalUpdateInterval$6);
+                intervalUpdateInterval$6 = null;
             }
-            globalThis.location = await this.getLatestMap(eftInstallPath$1);
+            globalThis.location = await this.getLatestMap(eftInstallPath$2);
             if (ev.payload.settings.map_autoupdate_check) {
-                intervalUpdateInterval$5 = setInterval(async () => {
-                    globalThis.location = await this.getLatestMap(eftInstallPath$1);
+                intervalUpdateInterval$6 = setInterval(async () => {
+                    globalThis.location = await this.getLatestMap(eftInstallPath$2);
                     streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
                 }, 3000);
             }
@@ -8403,6 +8402,90 @@ let TarkovCurrentMapInfo = (() => {
     return _classThis;
 })();
 
+const settingsFilePath$4 = path$1.join(process.cwd(), "user_settings.json");
+let map_autoupdate_check$4 = false;
+let pve_map_mode_check$4 = false;
+let intervalUpdateInterval$5 = null;
+// Load settings from user_settings.json
+function loadSettings$4() {
+    try {
+        if (fs$1.existsSync(settingsFilePath$4)) {
+            const fileData = fs$1.readFileSync(settingsFilePath$4, "utf8");
+            const settings = JSON.parse(fileData);
+            map_autoupdate_check$4 = settings.current_map_info?.map_autoupdate_check || false;
+            pve_map_mode_check$4 = settings.current_map_info?.pve_map_mode_check || false;
+            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
+        }
+        else {
+            streamDeck.logger.info("user_settings.json not found, using defaults.");
+        }
+    }
+    catch (error) {
+        streamDeck.logger.error("Error loading settings:", error);
+    }
+}
+// Load settings on startup
+loadSettings$4();
+let TarkovCurrentMapInfo_Name = (() => {
+    let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.name" })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = SingletonAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        async onWillAppear(ev) {
+            streamDeck.logger.info("onWillAppear triggered for Map Name.");
+            this.updateMapName(ev);
+            if (intervalUpdateInterval$5) {
+                clearInterval(intervalUpdateInterval$5);
+                intervalUpdateInterval$5 = null;
+            }
+            if (map_autoupdate_check$4) {
+                intervalUpdateInterval$5 = setInterval(() => this.updateMapName(ev), 5000);
+                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
+            }
+            else {
+                streamDeck.logger.info("Auto-update is disabled.");
+            }
+        }
+        onWillDisappear(ev) {
+            if (intervalUpdateInterval$5) {
+                clearInterval(intervalUpdateInterval$5);
+                intervalUpdateInterval$5 = null;
+                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
+            }
+        }
+        updateMapName(ev) {
+            const locationId = globalThis.location;
+            ev.action.setTitle("");
+            if (locationId) {
+                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
+                const mapData = pve_map_mode_check$4
+                    ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
+                    : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+                if (mapData) {
+                    ev.action.setTitle(`\n${mapData.name}`);
+                }
+                else {
+                    ev.action.setTitle("\nNo Map\nData");
+                }
+            }
+            else {
+                ev.action.setTitle("\nUnknown\nLocation");
+            }
+        }
+    });
+    return _classThis;
+})();
+
 const settingsFilePath$3 = path$1.join(process.cwd(), "user_settings.json");
 let map_autoupdate_check$3 = false;
 let pve_map_mode_check$3 = false;
@@ -8427,8 +8510,8 @@ function loadSettings$3() {
 }
 // Load settings on startup
 loadSettings$3();
-let TarkovCurrentMapInfo_Name = (() => {
-    let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.name" })];
+let TarkovCurrentMapInfo_Duration = (() => {
+    let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.raidduration" })];
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
@@ -8443,14 +8526,14 @@ let TarkovCurrentMapInfo_Name = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         async onWillAppear(ev) {
-            streamDeck.logger.info("onWillAppear triggered for Map Name.");
-            this.updateMapName(ev);
+            streamDeck.logger.info("onWillAppear triggered for Raid Duration.");
+            this.updateRaidDuration(ev);
             if (intervalUpdateInterval$4) {
                 clearInterval(intervalUpdateInterval$4);
                 intervalUpdateInterval$4 = null;
             }
             if (map_autoupdate_check$3) {
-                intervalUpdateInterval$4 = setInterval(() => this.updateMapName(ev), 5000);
+                intervalUpdateInterval$4 = setInterval(() => this.updateRaidDuration(ev), 5000);
                 streamDeck.logger.info("Auto-update enabled (every 5 sec).");
             }
             else {
@@ -8464,7 +8547,7 @@ let TarkovCurrentMapInfo_Name = (() => {
                 streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
             }
         }
-        updateMapName(ev) {
+        updateRaidDuration(ev) {
             const locationId = globalThis.location;
             ev.action.setTitle("");
             if (locationId) {
@@ -8473,7 +8556,7 @@ let TarkovCurrentMapInfo_Name = (() => {
                     ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                     : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
                 if (mapData) {
-                    ev.action.setTitle(`\n${mapData.name}`);
+                    ev.action.setTitle(`\n${mapData.raidDuration} min`);
                 }
                 else {
                     ev.action.setTitle("\nNo Map\nData");
@@ -8511,90 +8594,6 @@ function loadSettings$2() {
 }
 // Load settings on startup
 loadSettings$2();
-let TarkovCurrentMapInfo_Duration = (() => {
-    let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.raidduration" })];
-    let _classDescriptor;
-    let _classExtraInitializers = [];
-    let _classThis;
-    let _classSuper = SingletonAction;
-    (class extends _classSuper {
-        static { _classThis = this; }
-        static {
-            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
-            _classThis = _classDescriptor.value;
-            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
-            __runInitializers(_classThis, _classExtraInitializers);
-        }
-        async onWillAppear(ev) {
-            streamDeck.logger.info("onWillAppear triggered for Raid Duration.");
-            this.updateRaidDuration(ev);
-            if (intervalUpdateInterval$3) {
-                clearInterval(intervalUpdateInterval$3);
-                intervalUpdateInterval$3 = null;
-            }
-            if (map_autoupdate_check$2) {
-                intervalUpdateInterval$3 = setInterval(() => this.updateRaidDuration(ev), 5000);
-                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-            }
-            else {
-                streamDeck.logger.info("Auto-update is disabled.");
-            }
-        }
-        onWillDisappear(ev) {
-            if (intervalUpdateInterval$3) {
-                clearInterval(intervalUpdateInterval$3);
-                intervalUpdateInterval$3 = null;
-                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
-            }
-        }
-        updateRaidDuration(ev) {
-            const locationId = globalThis.location;
-            ev.action.setTitle("");
-            if (locationId) {
-                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
-                const mapData = pve_map_mode_check$2
-                    ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
-                    : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
-                if (mapData) {
-                    ev.action.setTitle(`\n${mapData.raidDuration} min`);
-                }
-                else {
-                    ev.action.setTitle("\nNo Map\nData");
-                }
-            }
-            else {
-                ev.action.setTitle("\nUnknown\nLocation");
-            }
-        }
-    });
-    return _classThis;
-})();
-
-const settingsFilePath$1 = path$1.join(process.cwd(), "user_settings.json");
-let map_autoupdate_check$1 = false;
-let pve_map_mode_check$1 = false;
-let intervalUpdateInterval$2 = null;
-// Load settings from user_settings.json
-function loadSettings$1() {
-    try {
-        if (fs$1.existsSync(settingsFilePath$1)) {
-            const fileData = fs$1.readFileSync(settingsFilePath$1, "utf8");
-            const settings = JSON.parse(fileData);
-            map_autoupdate_check$1 = settings.current_map_info?.map_autoupdate_check || false;
-            pve_map_mode_check$1 = settings.current_map_info?.pve_map_mode_check || false;
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
-        }
-        else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
-        }
-    }
-    catch (error) {
-        streamDeck.logger.error("Error loading settings:", error);
-    }
-}
-// Load settings on startup
-loadSettings$1();
 let TarkovCurrentMapInfo_Players = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.playercount" })];
     let _classDescriptor;
@@ -8613,12 +8612,12 @@ let TarkovCurrentMapInfo_Players = (() => {
         async onWillAppear(ev) {
             streamDeck.logger.info("onWillAppear triggered for Player Count.");
             this.updatePlayerCount(ev);
-            if (intervalUpdateInterval$2) {
-                clearInterval(intervalUpdateInterval$2);
-                intervalUpdateInterval$2 = null;
+            if (intervalUpdateInterval$3) {
+                clearInterval(intervalUpdateInterval$3);
+                intervalUpdateInterval$3 = null;
             }
-            if (map_autoupdate_check$1) {
-                intervalUpdateInterval$2 = setInterval(() => this.updatePlayerCount(ev), 5000);
+            if (map_autoupdate_check$2) {
+                intervalUpdateInterval$3 = setInterval(() => this.updatePlayerCount(ev), 5000);
                 streamDeck.logger.info("Auto-update enabled (every 5 sec).");
             }
             else {
@@ -8626,9 +8625,9 @@ let TarkovCurrentMapInfo_Players = (() => {
             }
         }
         onWillDisappear(ev) {
-            if (intervalUpdateInterval$2) {
-                clearInterval(intervalUpdateInterval$2);
-                intervalUpdateInterval$2 = null;
+            if (intervalUpdateInterval$3) {
+                clearInterval(intervalUpdateInterval$3);
+                intervalUpdateInterval$3 = null;
                 streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
             }
         }
@@ -8637,7 +8636,7 @@ let TarkovCurrentMapInfo_Players = (() => {
             ev.action.setTitle("");
             if (locationId) {
                 // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
-                const mapData = pve_map_mode_check$1
+                const mapData = pve_map_mode_check$2
                     ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                     : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
                 if (mapData) {
@@ -8680,6 +8679,225 @@ let TarkovCurrentMapInfo_BackToProfile = (() => {
     return _classThis;
 })();
 
+const settingsFilePath$1 = path$1.join(process.cwd(), "user_settings.json");
+let map_autoupdate_check$1 = false;
+let pve_map_mode_check$1 = false;
+let eftInstallPath$1;
+let intervalUpdateInterval$2 = null;
+// Load settings from user_settings.json
+function loadSettings$1() {
+    try {
+        if (fs$1.existsSync(settingsFilePath$1)) {
+            const fileData = fs$1.readFileSync(settingsFilePath$1, "utf8");
+            const settings = JSON.parse(fileData);
+            map_autoupdate_check$1 = settings.current_map_info?.map_autoupdate_check || false;
+            pve_map_mode_check$1 = settings.current_map_info?.pve_map_mode_check || false;
+            eftInstallPath$1 = settings.global?.eft_install_path || "";
+            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
+        }
+        else {
+            streamDeck.logger.info("user_settings.json not found, using defaults.");
+        }
+    }
+    catch (error) {
+        streamDeck.logger.error("Error loading settings:", error);
+    }
+}
+// Load settings on startup
+loadSettings$1();
+let TarkovCurrentMapInfo_CurrentServer = (() => {
+    let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.currentserver" })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = SingletonAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        serverInfo = null;
+        async onWillAppear(ev) {
+            streamDeck.logger.info("onWillAppear triggered for Server Info.");
+            // Initial update
+            await this.updateServerInfo();
+            this.updateServerDisplay(ev);
+            if (intervalUpdateInterval$2) {
+                clearInterval(intervalUpdateInterval$2);
+                intervalUpdateInterval$2 = null;
+            }
+            if (map_autoupdate_check$1) {
+                intervalUpdateInterval$2 = setInterval(async () => {
+                    await this.updateServerInfo();
+                    this.updateServerDisplay(ev);
+                }, 5000);
+                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
+            }
+            else {
+                streamDeck.logger.info("Auto-update is disabled.");
+            }
+        }
+        async onKeyDown(ev) {
+            ev.action.setTitle("Loading...");
+            await this.updateServerInfo();
+            this.updateServerDisplay(ev);
+        }
+        onWillDisappear(ev) {
+            if (intervalUpdateInterval$2) {
+                clearInterval(intervalUpdateInterval$2);
+                intervalUpdateInterval$2 = null;
+                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
+            }
+        }
+        async updateServerInfo() {
+            try {
+                this.serverInfo = await this.getLatestIP(eftInstallPath$1);
+                streamDeck.logger.info("Server info updated:", this.serverInfo);
+            }
+            catch (error) {
+                streamDeck.logger.error("Error updating server info:", error);
+            }
+        }
+        updateServerDisplay(ev) {
+            if (this.serverInfo && this.serverInfo.datacenter) {
+                // Format datacenter name by replacing spaces with newlines
+                const formattedDatacenter = this.serverInfo.datacenter.replace(/ /g, "\n");
+                ev.action.setTitle(`\n${formattedDatacenter}`);
+                streamDeck.logger.info(`Updated datacenter display: ${this.serverInfo.datacenter}`);
+            }
+            else {
+                ev.action.setTitle("No\nServer\nFound");
+                streamDeck.logger.info("No server information available");
+            }
+        }
+        async getLatestIP(path) {
+            try {
+                if (!path) {
+                    streamDeck.logger.warn("No EFT install path specified");
+                    return null;
+                }
+                const logsPath = `${path}\\Logs`;
+                streamDeck.logger.info("Using logs path:", logsPath);
+                const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
+                const logFolders = folders
+                    .filter(f => f.isDirectory() && f.name.startsWith("log_"))
+                    .map(f => ({
+                    dirent: f,
+                    timestamp: this.extractTimestamp(f.name)
+                }))
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .map(f => f.dirent);
+                if (logFolders.length === 0) {
+                    streamDeck.logger.info("No log folders found");
+                    return null;
+                }
+                const latestFolder = `${logsPath}\\${logFolders[0].name}`;
+                streamDeck.logger.info("Checking latest log folder:", latestFolder);
+                const files = await fs$1.promises.readdir(latestFolder, { withFileTypes: true });
+                const logFiles = files
+                    .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
+                    .sort((a, b) => b.name.localeCompare(a.name));
+                if (logFiles.length === 0) {
+                    streamDeck.logger.info("No log files found in folder:", latestFolder);
+                    return null;
+                }
+                const latestFile = `${latestFolder}\\${logFiles[0].name}`;
+                streamDeck.logger.info("Reading latest log file:", latestFile);
+                const content = await fs$1.promises.readFile(latestFile, "utf-8");
+                const lines = content.split("\n");
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const match = lines[i].match(/Ip:\s([\d\.]+),/);
+                    if (match) {
+                        const ip = match[1];
+                        streamDeck.logger.info("IP found:", ip);
+                        // Find corresponding datacenter
+                        let datacenterName = "Unknown";
+                        const datacenterData = globalThis.datacentersData;
+                        if (datacenterData) {
+                            for (const region in datacenterData) {
+                                for (const dc of datacenterData[region]) {
+                                    if (dc.unique_ips.includes(ip)) {
+                                        datacenterName = dc.datacenter;
+                                        break;
+                                    }
+                                }
+                                if (datacenterName !== "Unknown")
+                                    break;
+                            }
+                        }
+                        return { ip, datacenter: datacenterName };
+                    }
+                }
+                streamDeck.logger.info("No IP found in latest file:", latestFile);
+                return null;
+            }
+            catch (error) {
+                streamDeck.logger.error("Error reading logs:", error);
+                return null;
+            }
+        }
+        extractTimestamp(folderName) {
+            try {
+                const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
+                if (match) {
+                    const [_, year, month, day, hour, minute, second] = match;
+                    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+                    return date.getTime();
+                }
+                return 0;
+            }
+            catch (error) {
+                streamDeck.logger.error("Error parsing timestamp:", error);
+                return 0;
+            }
+        }
+        onDidReceiveSettings(ev) {
+            const { map_autoupdate_check: newAutoUpdate, pve_map_mode_check: newPveMode } = ev.payload.settings;
+            map_autoupdate_check$1 = newAutoUpdate || false;
+            pve_map_mode_check$1 = newPveMode || false;
+            streamDeck.logger.info("Received settings:", ev.payload.settings);
+            // Update the settings file
+            try {
+                let existingData = {};
+                if (fs$1.existsSync(settingsFilePath$1)) {
+                    const fileData = fs$1.readFileSync(settingsFilePath$1, "utf8");
+                    existingData = JSON.parse(fileData);
+                }
+                const updatedData = {
+                    ...existingData,
+                    current_map_info: {
+                        ...existingData["current_map_info"],
+                        map_autoupdate_check: map_autoupdate_check$1,
+                        pve_map_mode_check: pve_map_mode_check$1
+                    }
+                };
+                fs$1.writeFileSync(settingsFilePath$1, JSON.stringify(updatedData, null, 4));
+                streamDeck.logger.info("Settings successfully updated in user_settings.json");
+                // Restart interval if needed
+                if (intervalUpdateInterval$2) {
+                    clearInterval(intervalUpdateInterval$2);
+                    intervalUpdateInterval$2 = null;
+                }
+                if (map_autoupdate_check$1) {
+                    intervalUpdateInterval$2 = setInterval(async () => {
+                        await this.updateServerInfo();
+                        this.updateServerDisplay(ev.action);
+                    }, 5000);
+                    streamDeck.logger.info("Auto-update restarted with new settings.");
+                }
+            }
+            catch (error) {
+                streamDeck.logger.error("Error updating settings:", error);
+            }
+        }
+    });
+    return _classThis;
+})();
+
 let eftInstallPath;
 let currentServerInfo;
 let intervalUpdateInterval$1;
@@ -8691,6 +8909,7 @@ async function refreshDatacenterData() {
         const jsonData = await response.json();
         if (jsonData && typeof jsonData === "object") {
             datacenterData = jsonData;
+            globalThis.datacentersData = datacenterData;
             streamDeck.logger.info("Datacenter list updated.");
         }
     }
@@ -9430,6 +9649,7 @@ streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Thirteenth());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Fourteenth());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Fifteenth());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_Boss_Sixteenth());
+streamDeck.actions.registerAction(new TarkovCurrentMapInfo_CurrentServer());
 streamDeck.actions.registerAction(new TarkovCurrentMapInfo_BackToProfile());
 streamDeck.actions.registerAction(new TarkovCurrentServerInfo());
 streamDeck.connect();

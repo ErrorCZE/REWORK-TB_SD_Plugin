@@ -25,6 +25,7 @@ async function refreshDatacenterData(): Promise<void> {
 
         if (jsonData && typeof jsonData === "object") {
             datacenterData = jsonData;
+            globalThis.datacentersData = datacenterData;
             streamDeck.logger.info("Datacenter list updated.");
         }
     } catch (error) {

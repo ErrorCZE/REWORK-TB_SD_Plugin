@@ -165,6 +165,24 @@
 			"UserTitleEnabled": false
 		},
 		{
+			"Name": "Map Info - Current Server",
+			"UUID": "eu.tarkovbot.tools.mapinfo.currentserver",
+			"Icon": "assets/empty_image",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "assets/empty_image",
+					"TitleAlignment": "top",
+					"FontSize": 9
+				}
+			],
+			"UserTitleEnabled": false,
+			"VisibleInActionsList": true,
+			"SupportedInMultiActions": false
+		},
+		{
 			"Name": "Map Info - Boss Info [0]",
 			"UUID": "eu.tarkovbot.tools.mapinfo.bossinfo0",
 			"Icon": "assets/empty_image",

@@ -136,7 +136,6 @@ export class TarkovTraderRestock extends SingletonAction {
 
         if (!settings.selectedTrader) {
             ev.action.setTitle("Select\nTrader");
-            return;
         }
 
         ev.action.setImage(`assets/${settings.selectedTrader}.png`);
