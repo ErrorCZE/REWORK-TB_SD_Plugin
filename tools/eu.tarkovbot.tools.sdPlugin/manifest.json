@@ -173,13 +173,13 @@
 			],
 			"States": [
 				{
-					"Image": "assets/empty_image",
+					"Image": "assets/mapinfo_currentserver",
 					"TitleAlignment": "top",
 					"FontSize": 9
 				}
 			],
 			"UserTitleEnabled": false,
-			"VisibleInActionsList": true,
+			"VisibleInActionsList": false,
 			"SupportedInMultiActions": false
 		},
 		{

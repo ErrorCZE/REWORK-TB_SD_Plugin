@@ -19,7 +19,7 @@ interface GoonsData {
 export class TarkovGoonsLocation extends SingletonAction {
 
     override onWillAppear(ev: WillAppearEvent): void | Promise<void> {
-        ev.action.setTitle(`Press to\nGet Goons\nLocation`);
+        ev.action.setTitle(`Get\nGoons\nLocation`);
     };
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
@@ -70,7 +70,7 @@ export class TarkovGoonsLocation extends SingletonAction {
 
             // Wait 5 seconds and then set title again to press
             setTimeout(() => {
-                ev.action.setTitle(`Press to\nGet Goons\nLocation`);
+                ev.action.setTitle(`Get\nGoons\nLocation`);
             }, 5000)
 
         } catch (error) {

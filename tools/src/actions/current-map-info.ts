@@ -101,7 +101,7 @@ let intervalUpdateInterval: any;
 export class TarkovCurrentMapInfo extends SingletonAction {
 
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-        ev.action.setTitle(`Press to\nGet\nMap Info`);
+        ev.action.setTitle(`Get\nCurrent\nMap Info`);
     }
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {

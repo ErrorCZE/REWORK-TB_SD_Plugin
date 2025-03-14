@@ -43,7 +43,7 @@ setInterval(refreshDatacenterData, 3600000);
 export class TarkovCurrentServerInfo extends SingletonAction {
 
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-        ev.action.setTitle(`Press to\nGet\nServer`);
+        ev.action.setTitle(`Get\nCurrent\nServer`);
     }
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
@@ -62,7 +62,7 @@ export class TarkovCurrentServerInfo extends SingletonAction {
                 streamDeck.logger.info("Auto-update interval triggered; IP:", currentServerInfo);
 
                 if (currentServerInfo) {
-                    const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
+                    const formattedDatacenter = currentServerInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
                     ev.action.setTitle(formattedDatacenter);
                 } else {
                     ev.action.setTitle(`No\nIP\nFound`);
@@ -73,11 +73,11 @@ export class TarkovCurrentServerInfo extends SingletonAction {
             streamDeck.logger.info("Auto-update disabled; IP:", currentServerInfo);
 
             if (currentServerInfo) {
-                const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
+                const formattedDatacenter = currentServerInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
                 ev.action.setTitle(formattedDatacenter);
                 // Wait 5 seconds and then set title again to press
                 setTimeout(() => {
-                    ev.action.setTitle(`Press to\nGet\nServer`);
+                    ev.action.setTitle(`Get\nCurrent\nServer`);
                 }, 5000)
             } else {
                 ev.action.setTitle(`No\nIP\nFound`);

@@ -8004,7 +8004,7 @@ let TarkovGoonsLocation = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         onWillAppear(ev) {
-            ev.action.setTitle(`Press to\nGet Goons\nLocation`);
+            ev.action.setTitle(`Get\nGoons\nLocation`);
         }
         ;
         async onKeyDown(ev) {
@@ -8043,7 +8043,7 @@ let TarkovGoonsLocation = (() => {
                 ev.action.setTitle(`${location}\n${reportedFormatted}`);
                 // Wait 5 seconds and then set title again to press
                 setTimeout(() => {
-                    ev.action.setTitle(`Press to\nGet Goons\nLocation`);
+                    ev.action.setTitle(`Get\nGoons\nLocation`);
                 }, 5000);
             }
             catch (error) {
@@ -8255,7 +8255,7 @@ let TarkovCurrentMapInfo = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         async onWillAppear(ev) {
-            ev.action.setTitle(`Press to\nGet\nMap Info`);
+            ev.action.setTitle(`Get\nCurrent\nMap Info`);
         }
         async onKeyDown(ev) {
             eftInstallPath$2 = ev.payload.settings.eft_install_path;
@@ -8764,9 +8764,8 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
         }
         updateServerDisplay(ev) {
             if (this.serverInfo && this.serverInfo.datacenter) {
-                // Format datacenter name by replacing spaces with newlines
-                const formattedDatacenter = this.serverInfo.datacenter.replace(/ /g, "\n");
-                ev.action.setTitle(`\n${formattedDatacenter}`);
+                const formattedDatacenter = this.serverInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
+                ev.action.setTitle(`\n\n${formattedDatacenter}`);
                 streamDeck.logger.info(`Updated datacenter display: ${this.serverInfo.datacenter}`);
             }
             else {
@@ -8935,7 +8934,7 @@ let TarkovCurrentServerInfo = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         async onWillAppear(ev) {
-            ev.action.setTitle(`Press to\nGet\nServer`);
+            ev.action.setTitle(`Get\nCurrent\nServer`);
         }
         async onKeyDown(ev) {
             ev.action.setTitle(`Loading...`);
@@ -8950,7 +8949,7 @@ let TarkovCurrentServerInfo = (() => {
                     currentServerInfo = await this.getLatestIP(eftInstallPath);
                     streamDeck.logger.info("Auto-update interval triggered; IP:", currentServerInfo);
                     if (currentServerInfo) {
-                        const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
+                        const formattedDatacenter = currentServerInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
                         ev.action.setTitle(formattedDatacenter);
                     }
                     else {
@@ -8962,11 +8961,11 @@ let TarkovCurrentServerInfo = (() => {
                 currentServerInfo = await this.getLatestIP(eftInstallPath);
                 streamDeck.logger.info("Auto-update disabled; IP:", currentServerInfo);
                 if (currentServerInfo) {
-                    const formattedDatacenter = currentServerInfo.datacenter.replace(/ /g, "\n");
+                    const formattedDatacenter = currentServerInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
                     ev.action.setTitle(formattedDatacenter);
                     // Wait 5 seconds and then set title again to press
                     setTimeout(() => {
-                        ev.action.setTitle(`Press to\nGet\nServer`);
+                        ev.action.setTitle(`Get\nCurrent\nServer`);
                     }, 5000);
                 }
                 else {

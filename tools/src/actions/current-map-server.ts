@@ -92,9 +92,8 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 
 	private updateServerDisplay(ev: WillAppearEvent): void {
 		if (this.serverInfo && this.serverInfo.datacenter) {
-			// Format datacenter name by replacing spaces with newlines
-			const formattedDatacenter = this.serverInfo.datacenter.replace(/ /g, "\n");
-			ev.action.setTitle(`\n${formattedDatacenter}`);
+			const formattedDatacenter = this.serverInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
+			ev.action.setTitle(`\n\n${formattedDatacenter}`);
 			streamDeck.logger.info(`Updated datacenter display: ${this.serverInfo.datacenter}`);
 		} else {
 			ev.action.setTitle("No\nServer\nFound");
