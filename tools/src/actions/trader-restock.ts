@@ -98,7 +98,7 @@ export class TarkovTraderRestock extends SingletonAction {
             const pveMode = settings.pve_traders_mode_check;
 
             if (!trader) {
-                action.setTitle("No\nTrader");
+                action.setTitle("No\nTrader\nSelected");
                 return;
             }
 

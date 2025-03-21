@@ -179,7 +179,7 @@
 				}
 			],
 			"UserTitleEnabled": false,
-			"VisibleInActionsList": true,
+			"VisibleInActionsList": false,
 			"SupportedInMultiActions": false
 		},
 		{

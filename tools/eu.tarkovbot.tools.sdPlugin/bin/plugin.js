@@ -8138,7 +8138,7 @@ let TarkovTraderRestock = (() => {
                 const trader = settings.selectedTrader;
                 const pveMode = settings.pve_traders_mode_check;
                 if (!trader) {
-                    action.setTitle("No\nTrader");
+                    action.setTitle("No\nTrader\nSelected");
                     return;
                 }
                 const traderData = pveMode ? data_PVE : data_PVP;
