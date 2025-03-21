@@ -7,6 +7,7 @@ import {
     JsonObject
 } from "@elgato/streamdeck";
 
+
 interface TraderData {
     name: string;
     resetTime: string;
