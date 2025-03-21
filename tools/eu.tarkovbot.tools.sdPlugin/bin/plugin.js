@@ -8472,7 +8472,7 @@ let TarkovCurrentMapInfo_Name = (() => {
                     ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                     : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
                 if (mapData) {
-                    ev.action.setTitle(`\n${mapData.name}`);
+                    ev.action.setTitle(`\n${mapData.name.replace(/ /g, "\n")}`);
                 }
                 else {
                     ev.action.setTitle("\nNo Map\nData");
