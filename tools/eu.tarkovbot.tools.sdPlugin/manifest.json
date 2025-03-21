@@ -1,6 +1,6 @@
 {
 	"Name": "Escape from Tarkov Tools",
-	"Version": "1.3.2.1",
+	"Version": "1.4.0.0",
 	"Author": "TarkovBOT.eu",
 	"Category": "Escape from Tarkov Tools",
 	"CategoryIcon": "assets/categoryicon",
@@ -154,7 +154,7 @@
 			],
 			"States": [
 				{
-					"Image": "assets/raid",
+					"Image": "assets/empty_image",
 					"TitleAlignment": "middle",
 					"FontSize": 9
 				}
@@ -179,7 +179,7 @@
 				}
 			],
 			"UserTitleEnabled": false,
-			"VisibleInActionsList": false,
+			"VisibleInActionsList": true,
 			"SupportedInMultiActions": false
 		},
 		{
@@ -527,37 +527,37 @@
 	],
 	"Profiles": [
 		{
-			"Name": "Map Info MK",
+			"Name": "Map Info MK V2",
 			"DeviceType": 0,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true
 		},
 		{
-			"Name": "Map Info Mini",
+			"Name": "Map Info Mini V2",
 			"DeviceType": 1,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true
 		},
 		{
-			"Name": "Map Info XL",
+			"Name": "Map Info XL V2",
 			"DeviceType": 2,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true
 		},
 		{
-			"Name": "Map Info MK",
+			"Name": "Map Info MK V2",
 			"DeviceType": 3,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true
 		},
 		{
-			"Name": "Map Info Neo",
+			"Name": "Map Info Neo V2",
 			"DeviceType": 7,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true
 		},
 		{
-			"Name": "Map Info Neo",
+			"Name": "Map Info Neo V2",
 			"DeviceType": 9,
 			"Readonly": true,
 			"DontAutoSwitchWhenInstalled": true

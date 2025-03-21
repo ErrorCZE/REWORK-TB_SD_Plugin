@@ -8346,17 +8346,17 @@ let TarkovCurrentMapInfo = (() => {
         async getProfilePath(deviceType) {
             switch (deviceType) {
                 case 0:
-                    return "Map Info MK";
+                    return "Map Info MK V2";
                 case 1:
-                    return "Map Info Mini";
+                    return "Map Info Mini V2";
                 case 2:
-                    return "Map Info XL";
+                    return "Map Info XL V2";
                 case 3:
-                    return "Map Info MK";
+                    return "Map Info MK V2";
                 case 7:
-                    return "Map Info Neo";
+                    return "Map Info Neo V2";
                 case 9:
-                    return "Map Info Neo";
+                    return "Map Info Neo V2";
                 default:
                     return '';
             }
