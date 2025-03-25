@@ -38,7 +38,6 @@ loadSettings();
 @action({ UUID: "eu.tarkovbot.tools.mapinfo.name" })
 export class TarkovCurrentMapInfo_Name extends SingletonAction {
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-        streamDeck.logger.info("onWillAppear triggered for Map Name.");
 
         this.updateMapName(ev);
 
@@ -49,9 +48,7 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
 
         if (map_autoupdate_check) {
             intervalUpdateInterval = setInterval(() => this.updateMapName(ev), 5000);
-            streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-        } else {
-            streamDeck.logger.info("Auto-update is disabled.");
+    
         }
     }
 
@@ -60,7 +57,6 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
         if (intervalUpdateInterval) {
             clearInterval(intervalUpdateInterval);
             intervalUpdateInterval = null;
-            streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
         }
     }
 

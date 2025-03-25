@@ -52,7 +52,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
     }
 
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-        streamDeck.logger.info(`Boss ${this.bossIndex} instance appearing`);
         this.activeInstance = true;
 
         // Clear display on initial appearance
@@ -72,8 +71,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
 
                 // Check if map has changed
                 if (newLocationId !== currentGlobalLocationId) {
-                    streamDeck.logger.info(`Map changed from ${currentGlobalLocationId} to ${newLocationId}`);
-
                     // Clear the image cache when map changes
                     bossImageCache = {};
                     lastImageFetchMap = null;
@@ -83,7 +80,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
                 }
             }, 3000); // Check for map changes every 3 seconds
 
-            streamDeck.logger.info("Global map change detection enabled");
         }
 
         // Initial update
@@ -100,7 +96,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
     }
 
     override onWillDisappear(ev: WillDisappearEvent): void {
-        streamDeck.logger.info(`Boss ${this.bossIndex} instance disappearing`);
         this.activeInstance = false;
     }
 
@@ -116,7 +111,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
 
         // Check if PVE mode has changed
         if (lastPveMode !== pve_map_mode_check) {
-            streamDeck.logger.info(`PVE mode changed from ${lastPveMode} to ${pve_map_mode_check}`);
             // Reset image cache when PVE mode changes
             lastImageFetchMap = null;
             bossImageCache = {};

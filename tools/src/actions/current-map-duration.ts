@@ -38,7 +38,6 @@ loadSettings();
 @action({ UUID: "eu.tarkovbot.tools.mapinfo.raidduration" })
 export class TarkovCurrentMapInfo_Duration extends SingletonAction {
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-        streamDeck.logger.info("onWillAppear triggered for Raid Duration.");
 
         this.updateRaidDuration(ev);
 
@@ -49,9 +48,6 @@ export class TarkovCurrentMapInfo_Duration extends SingletonAction {
 
         if (map_autoupdate_check) {
             intervalUpdateInterval = setInterval(() => this.updateRaidDuration(ev), 5000);
-            streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-        } else {
-            streamDeck.logger.info("Auto-update is disabled.");
         }
     }
 
@@ -59,7 +55,6 @@ export class TarkovCurrentMapInfo_Duration extends SingletonAction {
         if (intervalUpdateInterval) {
             clearInterval(intervalUpdateInterval);
             intervalUpdateInterval = null;
-            streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
         }
     }
 

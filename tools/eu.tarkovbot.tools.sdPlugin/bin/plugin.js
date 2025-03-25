@@ -8438,7 +8438,6 @@ let TarkovCurrentMapInfo_Name = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         async onWillAppear(ev) {
-            streamDeck.logger.info("onWillAppear triggered for Map Name.");
             this.updateMapName(ev);
             if (intervalUpdateInterval$5) {
                 clearInterval(intervalUpdateInterval$5);
@@ -8446,17 +8445,12 @@ let TarkovCurrentMapInfo_Name = (() => {
             }
             if (map_autoupdate_check$4) {
                 intervalUpdateInterval$5 = setInterval(() => this.updateMapName(ev), 5000);
-                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-            }
-            else {
-                streamDeck.logger.info("Auto-update is disabled.");
             }
         }
         onWillDisappear(ev) {
             if (intervalUpdateInterval$5) {
                 clearInterval(intervalUpdateInterval$5);
                 intervalUpdateInterval$5 = null;
-                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
             }
         }
         updateMapName(ev) {
@@ -8518,7 +8512,6 @@ let TarkovCurrentMapInfo_Duration = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         async onWillAppear(ev) {
-            streamDeck.logger.info("onWillAppear triggered for Raid Duration.");
             this.updateRaidDuration(ev);
             if (intervalUpdateInterval$4) {
                 clearInterval(intervalUpdateInterval$4);
@@ -8526,17 +8519,12 @@ let TarkovCurrentMapInfo_Duration = (() => {
             }
             if (map_autoupdate_check$3) {
                 intervalUpdateInterval$4 = setInterval(() => this.updateRaidDuration(ev), 5000);
-                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-            }
-            else {
-                streamDeck.logger.info("Auto-update is disabled.");
             }
         }
         onWillDisappear(ev) {
             if (intervalUpdateInterval$4) {
                 clearInterval(intervalUpdateInterval$4);
                 intervalUpdateInterval$4 = null;
-                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
             }
         }
         updateRaidDuration(ev) {
@@ -8598,7 +8586,6 @@ let TarkovCurrentMapInfo_Players = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         async onWillAppear(ev) {
-            streamDeck.logger.info("onWillAppear triggered for Player Count.");
             this.updatePlayerCount(ev);
             if (intervalUpdateInterval$3) {
                 clearInterval(intervalUpdateInterval$3);
@@ -8606,17 +8593,12 @@ let TarkovCurrentMapInfo_Players = (() => {
             }
             if (map_autoupdate_check$2) {
                 intervalUpdateInterval$3 = setInterval(() => this.updatePlayerCount(ev), 5000);
-                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-            }
-            else {
-                streamDeck.logger.info("Auto-update is disabled.");
             }
         }
         onWillDisappear(ev) {
             if (intervalUpdateInterval$3) {
                 clearInterval(intervalUpdateInterval$3);
                 intervalUpdateInterval$3 = null;
-                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
             }
         }
         updatePlayerCount(ev) {
@@ -8686,7 +8668,6 @@ function loadSettings$1() {
         }
     }
     catch (error) {
-        streamDeck.logger.error("Error loading settings:", error);
     }
 }
 // Load settings on startup
@@ -8708,7 +8689,6 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
         }
         serverInfo = null;
         async onWillAppear(ev) {
-            streamDeck.logger.info("onWillAppear triggered for Server Info.");
             // Initial update
             await this.updateServerInfo();
             this.updateServerDisplay(ev);
@@ -8721,10 +8701,6 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                     await this.updateServerInfo();
                     this.updateServerDisplay(ev);
                 }, 5000);
-                streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-            }
-            else {
-                streamDeck.logger.info("Auto-update is disabled.");
             }
         }
         async onKeyDown(ev) {
@@ -8736,37 +8712,30 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
             if (intervalUpdateInterval$2) {
                 clearInterval(intervalUpdateInterval$2);
                 intervalUpdateInterval$2 = null;
-                streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
             }
         }
         async updateServerInfo() {
             try {
                 this.serverInfo = await this.getLatestIP(eftInstallPath$1);
-                streamDeck.logger.info("Server info updated:", this.serverInfo);
             }
             catch (error) {
-                streamDeck.logger.error("Error updating server info:", error);
             }
         }
         updateServerDisplay(ev) {
             if (this.serverInfo && this.serverInfo.datacenter) {
                 const formattedDatacenter = this.serverInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
                 ev.action.setTitle(`\n\n${formattedDatacenter}`);
-                streamDeck.logger.info(`Updated datacenter display: ${this.serverInfo.datacenter}`);
             }
             else {
                 ev.action.setTitle("No\nServer\nFound");
-                streamDeck.logger.info("No server information available");
             }
         }
         async getLatestIP(path) {
             try {
                 if (!path) {
-                    streamDeck.logger.warn("No EFT install path specified");
                     return null;
                 }
                 const logsPath = `${path}\\Logs`;
-                streamDeck.logger.info("Using logs path:", logsPath);
                 const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
                 const logFolders = folders
                     .filter(f => f.isDirectory() && f.name.startsWith("log_"))
@@ -8777,28 +8746,23 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                     .sort((a, b) => b.timestamp - a.timestamp)
                     .map(f => f.dirent);
                 if (logFolders.length === 0) {
-                    streamDeck.logger.info("No log folders found");
                     return null;
                 }
                 const latestFolder = `${logsPath}\\${logFolders[0].name}`;
-                streamDeck.logger.info("Checking latest log folder:", latestFolder);
                 const files = await fs$1.promises.readdir(latestFolder, { withFileTypes: true });
                 const logFiles = files
                     .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
                     .sort((a, b) => b.name.localeCompare(a.name));
                 if (logFiles.length === 0) {
-                    streamDeck.logger.info("No log files found in folder:", latestFolder);
                     return null;
                 }
                 const latestFile = `${latestFolder}\\${logFiles[0].name}`;
-                streamDeck.logger.info("Reading latest log file:", latestFile);
                 const content = await fs$1.promises.readFile(latestFile, "utf-8");
                 const lines = content.split("\n");
                 for (let i = lines.length - 1; i >= 0; i--) {
                     const match = lines[i].match(/Ip:\s([\d\.]+),/);
                     if (match) {
                         const ip = match[1];
-                        streamDeck.logger.info("IP found:", ip);
                         // Find corresponding datacenter
                         let datacenterName = "Unknown";
                         const datacenterData = globalThis.datacentersData;
@@ -8817,11 +8781,9 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                         return { ip, datacenter: datacenterName };
                     }
                 }
-                streamDeck.logger.info("No IP found in latest file:", latestFile);
                 return null;
             }
             catch (error) {
-                streamDeck.logger.error("Error reading logs:", error);
                 return null;
             }
         }
@@ -8836,7 +8798,6 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                 return 0;
             }
             catch (error) {
-                streamDeck.logger.error("Error parsing timestamp:", error);
                 return 0;
             }
         }
@@ -8844,7 +8805,6 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
             const { map_autoupdate_check: newAutoUpdate, pve_map_mode_check: newPveMode } = ev.payload.settings;
             map_autoupdate_check$1 = newAutoUpdate || false;
             pve_map_mode_check$1 = newPveMode || false;
-            streamDeck.logger.info("Received settings:", ev.payload.settings);
             // Update the settings file
             try {
                 let existingData = {};
@@ -8861,7 +8821,6 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                     }
                 };
                 fs$1.writeFileSync(settingsFilePath$1, JSON.stringify(updatedData, null, 4));
-                streamDeck.logger.info("Settings successfully updated in user_settings.json");
                 // Restart interval if needed
                 if (intervalUpdateInterval$2) {
                     clearInterval(intervalUpdateInterval$2);
@@ -8872,11 +8831,9 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                         await this.updateServerInfo();
                         this.updateServerDisplay(ev.action);
                     }, 5000);
-                    streamDeck.logger.info("Auto-update restarted with new settings.");
                 }
             }
             catch (error) {
-                streamDeck.logger.error("Error updating settings:", error);
             }
         }
     });
@@ -9123,7 +9080,6 @@ let TarkovCurrentMapInfo_Boss = (() => {
             this.bossIndex = bossIndex;
         }
         async onWillAppear(ev) {
-            streamDeck.logger.info(`Boss ${this.bossIndex} instance appearing`);
             this.activeInstance = true;
             // Clear display on initial appearance
             await this.clearBossDisplay(ev);
@@ -9138,7 +9094,6 @@ let TarkovCurrentMapInfo_Boss = (() => {
                     const newLocationId = globalThis.location;
                     // Check if map has changed
                     if (newLocationId !== currentGlobalLocationId) {
-                        streamDeck.logger.info(`Map changed from ${currentGlobalLocationId} to ${newLocationId}`);
                         // Clear the image cache when map changes
                         bossImageCache = {};
                         lastImageFetchMap = null;
@@ -9146,7 +9101,6 @@ let TarkovCurrentMapInfo_Boss = (() => {
                         currentGlobalLocationId = newLocationId;
                     }
                 }, 3000); // Check for map changes every 3 seconds
-                streamDeck.logger.info("Global map change detection enabled");
             }
             // Initial update
             await this.updateBossInfo(ev);
@@ -9160,7 +9114,6 @@ let TarkovCurrentMapInfo_Boss = (() => {
             }, 5000);
         }
         onWillDisappear(ev) {
-            streamDeck.logger.info(`Boss ${this.bossIndex} instance disappearing`);
             this.activeInstance = false;
         }
         // Helper method to clear the display
@@ -9173,7 +9126,6 @@ let TarkovCurrentMapInfo_Boss = (() => {
             loadSettings();
             // Check if PVE mode has changed
             if (lastPveMode !== pve_map_mode_check) {
-                streamDeck.logger.info(`PVE mode changed from ${lastPveMode} to ${pve_map_mode_check}`);
                 // Reset image cache when PVE mode changes
                 lastImageFetchMap = null;
                 bossImageCache = {};

@@ -33,7 +33,6 @@ function loadSettings(): void {
 			
 		}
 	} catch (error) {
-		streamDeck.logger.error("Error loading settings:", error);
 	}
 }
 
@@ -45,7 +44,7 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 	private serverInfo: { ip: string, datacenter: string } | null = null;
 
 	override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-		streamDeck.logger.info("onWillAppear triggered for Server Info.");
+		
 		
 		// Initial update
 		await this.updateServerInfo();
@@ -61,9 +60,7 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 				await this.updateServerInfo();
 				this.updateServerDisplay(ev);
 			}, 5000);
-			streamDeck.logger.info("Auto-update enabled (every 5 sec).");
-		} else {
-			streamDeck.logger.info("Auto-update is disabled.");
+			
 		}
 	}
 	
@@ -77,16 +74,13 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 		if (intervalUpdateInterval) {
 			clearInterval(intervalUpdateInterval);
 			intervalUpdateInterval = null;
-			streamDeck.logger.info("Auto-update stopped (onWillDisappear).");
 		}
 	}
 	
 	private async updateServerInfo(): Promise<void> {
 		try {
 			this.serverInfo = await this.getLatestIP(eftInstallPath);
-			streamDeck.logger.info("Server info updated:", this.serverInfo);
 		} catch (error) {
-			streamDeck.logger.error("Error updating server info:", error);
 		}
 	}
 
@@ -94,22 +88,18 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 		if (this.serverInfo && this.serverInfo.datacenter) {
 			const formattedDatacenter = this.serverInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
 			ev.action.setTitle(`\n\n${formattedDatacenter}`);
-			streamDeck.logger.info(`Updated datacenter display: ${this.serverInfo.datacenter}`);
 		} else {
 			ev.action.setTitle("No\nServer\nFound");
-			streamDeck.logger.info("No server information available");
 		}
 	}
 	
 	private async getLatestIP(path: string): Promise<{ ip: string, datacenter: string } | null> {
 		try {
 			if (!path) {
-				streamDeck.logger.warn("No EFT install path specified");
 				return null;
 			}
 			
 			const logsPath = `${path}\\Logs`;
-			streamDeck.logger.info("Using logs path:", logsPath);
 
 			const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
 			const logFolders = folders
@@ -122,12 +112,10 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 				.map(f => f.dirent);
 
 			if (logFolders.length === 0) {
-				streamDeck.logger.info("No log folders found");
 				return null;
 			}
 
 			const latestFolder = `${logsPath}\\${logFolders[0].name}`;
-			streamDeck.logger.info("Checking latest log folder:", latestFolder);
 
 			const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
 			const logFiles = files
@@ -135,12 +123,11 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 				.sort((a, b) => b.name.localeCompare(a.name));
 
 			if (logFiles.length === 0) {
-				streamDeck.logger.info("No log files found in folder:", latestFolder);
+
 				return null;
 			}
 
 			const latestFile = `${latestFolder}\\${logFiles[0].name}`;
-			streamDeck.logger.info("Reading latest log file:", latestFile);
 
 			const content = await fs.promises.readFile(latestFile, "utf-8");
 			const lines = content.split("\n");
@@ -149,7 +136,7 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 				const match = lines[i].match(/Ip:\s([\d\.]+),/);
 				if (match) {
 					const ip = match[1];
-					streamDeck.logger.info("IP found:", ip);
+	
 
 					// Find corresponding datacenter
 					let datacenterName = "Unknown";
@@ -171,10 +158,8 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 				}
 			}
 
-			streamDeck.logger.info("No IP found in latest file:", latestFile);
 			return null;
 		} catch (error) {
-			streamDeck.logger.error("Error reading logs:", error);
 			return null;
 		}
 	}
@@ -196,7 +181,6 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 			}
 			return 0;
 		} catch (error) {
-			streamDeck.logger.error("Error parsing timestamp:", error);
 			return 0;
 		}
 	}
@@ -206,8 +190,7 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 		
 		map_autoupdate_check = newAutoUpdate || false;
 		pve_map_mode_check = newPveMode || false;
-		
-		streamDeck.logger.info("Received settings:", ev.payload.settings);
+	
 		
 		// Update the settings file
 		try {
@@ -227,7 +210,6 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 			};
 			
 			fs.writeFileSync(settingsFilePath, JSON.stringify(updatedData, null, 4));
-			streamDeck.logger.info("Settings successfully updated in user_settings.json");
 			
 			// Restart interval if needed
 			if (intervalUpdateInterval) {
@@ -240,10 +222,9 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 					await this.updateServerInfo();
 					this.updateServerDisplay(ev.action);
 				}, 5000);
-				streamDeck.logger.info("Auto-update restarted with new settings.");
+
 			}
 		} catch (error) {
-			streamDeck.logger.error("Error updating settings:", error);
 		}
 	}
 }
