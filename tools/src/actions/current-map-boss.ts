@@ -31,9 +31,7 @@ function loadSettings(): void {
             map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
 
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
-        } else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
+
         }
     } catch (error) {
         streamDeck.logger.error("Error loading settings:", error);
@@ -58,7 +56,10 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         this.activeInstance = true;
 
         // Clear display on initial appearance
-        this.clearBossDisplay(ev);
+        await this.clearBossDisplay(ev);
+
+        // Always show the boss info for the current map, regardless of autoupdate
+        await this.updateBossInfo(ev);
 
         // Check if this is the first active boss instance
         if (intervalUpdateInterval === null && map_autoupdate_check) {
@@ -104,7 +105,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
     }
 
     // Helper method to clear the display
-    private clearBossDisplay(ev: WillAppearEvent): void {
+    private async clearBossDisplay(ev: WillAppearEvent): Promise<void> {
         ev.action.setTitle("");
         ev.action.setImage("");
     }
@@ -114,13 +115,13 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         loadSettings();
 
         // Check if PVE mode has changed
-    if (lastPveMode !== pve_map_mode_check) {
-        streamDeck.logger.info(`PVE mode changed from ${lastPveMode} to ${pve_map_mode_check}`);
-        // Reset image cache when PVE mode changes
-        lastImageFetchMap = null;
-        bossImageCache = {};
-        lastPveMode = pve_map_mode_check;
-    }
+        if (lastPveMode !== pve_map_mode_check) {
+            streamDeck.logger.info(`PVE mode changed from ${lastPveMode} to ${pve_map_mode_check}`);
+            // Reset image cache when PVE mode changes
+            lastImageFetchMap = null;
+            bossImageCache = {};
+            lastPveMode = pve_map_mode_check;
+        }
 
         // Always start with a clear display when map changes
         if (currentGlobalLocationId !== globalThis.location) {

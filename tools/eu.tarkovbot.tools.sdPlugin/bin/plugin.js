@@ -8414,10 +8414,6 @@ function loadSettings$4() {
             const settings = JSON.parse(fileData);
             map_autoupdate_check$4 = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check$4 = settings.current_map_info?.pve_map_mode_check || false;
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
-        }
-        else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
         }
     }
     catch (error) {
@@ -8498,10 +8494,6 @@ function loadSettings$3() {
             const settings = JSON.parse(fileData);
             map_autoupdate_check$3 = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check$3 = settings.current_map_info?.pve_map_mode_check || false;
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
-        }
-        else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
         }
     }
     catch (error) {
@@ -8582,10 +8574,6 @@ function loadSettings$2() {
             const settings = JSON.parse(fileData);
             map_autoupdate_check$2 = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check$2 = settings.current_map_info?.pve_map_mode_check || false;
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
-        }
-        else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
         }
     }
     catch (error) {
@@ -8693,10 +8681,8 @@ function loadSettings$1() {
             map_autoupdate_check$1 = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check$1 = settings.current_map_info?.pve_map_mode_check || false;
             eftInstallPath$1 = settings.global?.eft_install_path || "";
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
         }
         else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
         }
     }
     catch (error) {
@@ -9107,10 +9093,6 @@ function loadSettings() {
             const settings = JSON.parse(fileData);
             map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
-        }
-        else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
         }
     }
     catch (error) {
@@ -9144,7 +9126,9 @@ let TarkovCurrentMapInfo_Boss = (() => {
             streamDeck.logger.info(`Boss ${this.bossIndex} instance appearing`);
             this.activeInstance = true;
             // Clear display on initial appearance
-            this.clearBossDisplay(ev);
+            await this.clearBossDisplay(ev);
+            // Always show the boss info for the current map, regardless of autoupdate
+            await this.updateBossInfo(ev);
             // Check if this is the first active boss instance
             if (intervalUpdateInterval === null && map_autoupdate_check) {
                 // Initialize the global map tracking
@@ -9180,7 +9164,7 @@ let TarkovCurrentMapInfo_Boss = (() => {
             this.activeInstance = false;
         }
         // Helper method to clear the display
-        clearBossDisplay(ev) {
+        async clearBossDisplay(ev) {
             ev.action.setTitle("");
             ev.action.setImage("");
         }

@@ -25,10 +25,8 @@ function loadSettings(): void {
             map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
 
-            streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
-        } else {
-            streamDeck.logger.info("user_settings.json not found, using defaults.");
-        }
+            
+        } 
     } catch (error) {
         streamDeck.logger.error("Error loading settings:", error);
     }

@@ -28,9 +28,9 @@ function loadSettings(): void {
 			pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
 			eftInstallPath = settings.global?.eft_install_path || "";
 			
-			streamDeck.logger.info("Settings loaded from user_settings.json:", settings);
+			
 		} else {
-			streamDeck.logger.info("user_settings.json not found, using defaults.");
+			
 		}
 	} catch (error) {
 		streamDeck.logger.error("Error loading settings:", error);
