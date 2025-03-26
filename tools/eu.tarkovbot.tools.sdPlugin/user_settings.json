@@ -4,6 +4,6 @@
     },
     "current_map_info": {
         "pve_map_mode_check": false,
-        "map_autoupdate_check": true
+        "map_autoupdate_check": false
     }
 }
