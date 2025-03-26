@@ -3,8 +3,7 @@ import {
     action,
     SingletonAction,
     WillAppearEvent,
-    WillDisappearEvent,
-    DidReceiveSettingsEvent
+    WillDisappearEvent
 } from "@elgato/streamdeck";
 import fs from "fs";
 import path from "path";
@@ -25,10 +24,10 @@ function loadSettings(): void {
             map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
 
-            
+            streamDeck.logger.info(`Loaded settings - Auto Update: ${map_autoupdate_check}, PvE Mode: ${pve_map_mode_check}`);
         } 
     } catch (error) {
-        streamDeck.logger.error("Error loading settings:", error);
+        streamDeck.logger.info(`Error loading settings: ${error}`);
     }
 }
 
@@ -38,6 +37,7 @@ loadSettings();
 @action({ UUID: "eu.tarkovbot.tools.mapinfo.name" })
 export class TarkovCurrentMapInfo_Name extends SingletonAction {
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+        streamDeck.logger.info("Action will appear");
 
         this.updateMapName(ev);
 
@@ -47,13 +47,13 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
         }
 
         if (map_autoupdate_check) {
+            streamDeck.logger.info("Starting auto-update interval");
             intervalUpdateInterval = setInterval(() => this.updateMapName(ev), 5000);
-    
         }
     }
 
-
     override onWillDisappear(ev: WillDisappearEvent): void {
+        streamDeck.logger.info("Action will disappear");
         if (intervalUpdateInterval) {
             clearInterval(intervalUpdateInterval);
             intervalUpdateInterval = null;
@@ -62,6 +62,8 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
 
     private updateMapName(ev: WillAppearEvent): void {
         const locationId = globalThis.location;
+        streamDeck.logger.info(`Current Location ID: ${locationId}`);
+
         ev.action.setTitle("");
 
         if (locationId) {
@@ -69,6 +71,9 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
             const mapData = pve_map_mode_check
                 ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                 : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+
+            streamDeck.logger.info(`Map Mode: ${pve_map_mode_check ? 'PvE' : 'PvP'}`);
+            streamDeck.logger.info(`Found Map Data: ${mapData ? JSON.stringify(mapData) : 'No map data'}`);
 
             if (mapData) {
                 ev.action.setTitle(`\n${mapData.name.replace(/ /g, "\n")}`);

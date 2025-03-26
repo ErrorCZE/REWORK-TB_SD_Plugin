@@ -55,10 +55,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         this.activeInstance = true;
 
         // Clear display on initial appearance
-        await this.clearBossDisplay(ev);
-
-        // Always show the boss info for the current map, regardless of autoupdate
-        await this.updateBossInfo(ev);
+        this.clearBossDisplay(ev);
 
         // Check if this is the first active boss instance
         if (intervalUpdateInterval === null && map_autoupdate_check) {

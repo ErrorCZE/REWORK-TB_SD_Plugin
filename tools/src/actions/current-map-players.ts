@@ -3,8 +3,7 @@ import {
     action,
     SingletonAction,
     WillAppearEvent,
-    WillDisappearEvent,
-    DidReceiveSettingsEvent
+    WillDisappearEvent
 } from "@elgato/streamdeck";
 import fs from "fs";
 import path from "path";
@@ -24,11 +23,9 @@ function loadSettings(): void {
 
             map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
-
-            
         } 
     } catch (error) {
-        streamDeck.logger.error("Error loading settings:", error);
+        streamDeck.logger.info(`Error loading settings: ${error}`);
     }
 }
 
@@ -38,7 +35,6 @@ loadSettings();
 @action({ UUID: "eu.tarkovbot.tools.mapinfo.playercount" })
 export class TarkovCurrentMapInfo_Players extends SingletonAction {
     override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-
         this.updatePlayerCount(ev);
 
         if (intervalUpdateInterval) {
