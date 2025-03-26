@@ -8406,7 +8406,6 @@ const settingsFilePath$4 = path$1.join(process.cwd(), "user_settings.json");
 let map_autoupdate_check$4 = false;
 let pve_map_mode_check$4 = false;
 let intervalUpdateInterval$5 = null;
-// Load settings from user_settings.json
 function loadSettings$4() {
     try {
         if (fs$1.existsSync(settingsFilePath$4)) {
@@ -8414,11 +8413,10 @@ function loadSettings$4() {
             const settings = JSON.parse(fileData);
             map_autoupdate_check$4 = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check$4 = settings.current_map_info?.pve_map_mode_check || false;
-            streamDeck.logger.info(`Loaded settings - Auto Update: ${map_autoupdate_check$4}, PvE Mode: ${pve_map_mode_check$4}`);
         }
     }
     catch (error) {
-        streamDeck.logger.info(`Error loading settings: ${error}`);
+        streamDeck.logger.error("Error loading settings:", error);
     }
 }
 // Load settings on startup
@@ -8446,7 +8444,7 @@ let TarkovCurrentMapInfo_Name = (() => {
                 intervalUpdateInterval$5 = null;
             }
             if (map_autoupdate_check$4) {
-                streamDeck.logger.info("Starting auto-update interval");
+                streamDeck.logger.info("Starting auto-update interval for map name");
                 intervalUpdateInterval$5 = setInterval(() => this.updateMapName(ev), 5000);
             }
         }
@@ -8458,24 +8456,30 @@ let TarkovCurrentMapInfo_Name = (() => {
             }
         }
         updateMapName(ev) {
+            loadSettings$4();
+            streamDeck.logger.info("updateMapName called");
             const locationId = globalThis.location;
             streamDeck.logger.info(`Current Location ID: ${locationId}`);
             ev.action.setTitle("");
             if (locationId) {
-                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
+                streamDeck.logger.info("Fetching map data...");
                 const mapData = pve_map_mode_check$4
                     ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                     : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
                 streamDeck.logger.info(`Map Mode: ${pve_map_mode_check$4 ? 'PvE' : 'PvP'}`);
                 streamDeck.logger.info(`Found Map Data: ${mapData ? JSON.stringify(mapData) : 'No map data'}`);
                 if (mapData) {
-                    ev.action.setTitle(`\n${mapData.name.replace(/ /g, "\n")}`);
+                    const formattedName = `\n${mapData.name.replace(/ /g, "\n")}`;
+                    streamDeck.logger.info(`Setting title: ${formattedName}`);
+                    ev.action.setTitle(formattedName);
                 }
                 else {
+                    streamDeck.logger.info("No map data found, setting default title");
                     ev.action.setTitle("\nNo Map\nData");
                 }
             }
             else {
+                streamDeck.logger.info("Unknown location, setting default title");
                 ev.action.setTitle("\nUnknown\nLocation");
             }
         }
@@ -8535,6 +8539,7 @@ let TarkovCurrentMapInfo_Duration = (() => {
             }
         }
         updateRaidDuration(ev) {
+            loadSettings$3();
             const locationId = globalThis.location;
             ev.action.setTitle("");
             if (locationId) {
@@ -8609,6 +8614,7 @@ let TarkovCurrentMapInfo_Players = (() => {
             }
         }
         updatePlayerCount(ev) {
+            loadSettings$2();
             const locationId = globalThis.location;
             ev.action.setTitle("");
             if (locationId) {
@@ -8722,6 +8728,7 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
             }
         }
         async updateServerInfo() {
+            loadSettings$1();
             try {
                 this.serverInfo = await this.getLatestIP(eftInstallPath$1);
             }

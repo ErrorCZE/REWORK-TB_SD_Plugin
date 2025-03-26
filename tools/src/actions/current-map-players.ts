@@ -55,6 +55,7 @@ export class TarkovCurrentMapInfo_Players extends SingletonAction {
     }
 
     private updatePlayerCount(ev: WillAppearEvent): void {
+        loadSettings();
         const locationId = globalThis.location;
         ev.action.setTitle("");
 

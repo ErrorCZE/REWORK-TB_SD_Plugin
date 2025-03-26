@@ -78,6 +78,7 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 	}
 	
 	private async updateServerInfo(): Promise<void> {
+		loadSettings();
 		try {
 			this.serverInfo = await this.getLatestIP(eftInstallPath);
 		} catch (error) {

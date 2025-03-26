@@ -55,6 +55,7 @@ export class TarkovCurrentMapInfo_Duration extends SingletonAction {
     }
 
     private updateRaidDuration(ev: WillAppearEvent): void {
+        loadSettings();
         const locationId = globalThis.location;
         ev.action.setTitle("");
 

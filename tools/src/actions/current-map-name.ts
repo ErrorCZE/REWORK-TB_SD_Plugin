@@ -14,7 +14,6 @@ let map_autoupdate_check = false;
 let pve_map_mode_check = false;
 let intervalUpdateInterval: NodeJS.Timeout | null = null;
 
-// Load settings from user_settings.json
 function loadSettings(): void {
     try {
         if (fs.existsSync(settingsFilePath)) {
@@ -24,10 +23,10 @@ function loadSettings(): void {
             map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
 
-            streamDeck.logger.info(`Loaded settings - Auto Update: ${map_autoupdate_check}, PvE Mode: ${pve_map_mode_check}`);
-        } 
+
+        }
     } catch (error) {
-        streamDeck.logger.info(`Error loading settings: ${error}`);
+        streamDeck.logger.error("Error loading settings:", error);
     }
 }
 
@@ -47,7 +46,7 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
         }
 
         if (map_autoupdate_check) {
-            streamDeck.logger.info("Starting auto-update interval");
+            streamDeck.logger.info("Starting auto-update interval for map name");
             intervalUpdateInterval = setInterval(() => this.updateMapName(ev), 5000);
         }
     }
@@ -61,27 +60,36 @@ export class TarkovCurrentMapInfo_Name extends SingletonAction {
     }
 
     private updateMapName(ev: WillAppearEvent): void {
+        loadSettings();
+        streamDeck.logger.info("updateMapName called");
+    
         const locationId = globalThis.location;
         streamDeck.logger.info(`Current Location ID: ${locationId}`);
-
+    
         ev.action.setTitle("");
-
+    
         if (locationId) {
-            // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
+            streamDeck.logger.info("Fetching map data...");
+            
             const mapData = pve_map_mode_check
                 ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
                 : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
-
+    
             streamDeck.logger.info(`Map Mode: ${pve_map_mode_check ? 'PvE' : 'PvP'}`);
             streamDeck.logger.info(`Found Map Data: ${mapData ? JSON.stringify(mapData) : 'No map data'}`);
-
+    
             if (mapData) {
-                ev.action.setTitle(`\n${mapData.name.replace(/ /g, "\n")}`);
+                const formattedName = `\n${mapData.name.replace(/ /g, "\n")}`;
+                streamDeck.logger.info(`Setting title: ${formattedName}`);
+                ev.action.setTitle(formattedName);
             } else {
+                streamDeck.logger.info("No map data found, setting default title");
                 ev.action.setTitle("\nNo Map\nData");
             }
         } else {
+            streamDeck.logger.info("Unknown location, setting default title");
             ev.action.setTitle("\nUnknown\nLocation");
         }
     }
+    
 }
