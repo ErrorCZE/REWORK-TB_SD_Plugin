@@ -30,8 +30,6 @@ function loadSettings(): void {
 
             map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
             pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
-
-
         }
     } catch (error) {
         streamDeck.logger.error("Error loading settings:", error);
@@ -45,6 +43,7 @@ loadSettings();
 export class TarkovCurrentMapInfo_Boss extends SingletonAction {
     private bossIndex: number;
     private activeInstance: boolean = false;
+    private updateInterval: NodeJS.Timeout | null = null;
 
     constructor(bossIndex: number) {
         super();
@@ -57,43 +56,46 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         // Clear display on initial appearance
         this.clearBossDisplay(ev);
 
-        // Check if this is the first active boss instance
+        // Set up map change tracking interval ONLY if auto-update is enabled
         if (intervalUpdateInterval === null && map_autoupdate_check) {
-            // Initialize the global map tracking
             currentGlobalLocationId = globalThis.location;
 
-            // Set up the global update interval that will handle map changes
             intervalUpdateInterval = setInterval(() => {
                 const newLocationId = globalThis.location;
 
-                // Check if map has changed
                 if (newLocationId !== currentGlobalLocationId) {
-                    // Clear the image cache when map changes
                     bossImageCache = {};
                     lastImageFetchMap = null;
-
-                    // Update the current global location
                     currentGlobalLocationId = newLocationId;
                 }
-            }, 3000); // Check for map changes every 3 seconds
-
+            }, 3000);
         }
 
-        // Initial update
+        // Initial update - Always run this
         await this.updateBossInfo(ev);
 
-        // Set individual update timer
-        const instanceInterval = setInterval(async () => {
-            if (!this.activeInstance) {
-                clearInterval(instanceInterval);
-                return;
-            }
-            await this.updateBossInfo(ev);
-        }, 5000);
+        // Set up periodic update ONLY if auto-update is enabled
+        if (map_autoupdate_check) {
+            this.updateInterval = setInterval(async () => {
+                if (!this.activeInstance) {
+                    this.clearUpdateInterval();
+                    return;
+                }
+                await this.updateBossInfo(ev);
+            }, 5000);
+        }
     }
 
     override onWillDisappear(ev: WillDisappearEvent): void {
         this.activeInstance = false;
+        this.clearUpdateInterval();
+    }
+
+    private clearUpdateInterval(): void {
+        if (this.updateInterval) {
+            clearInterval(this.updateInterval);
+            this.updateInterval = null;
+        }
     }
 
     // Helper method to clear the display
@@ -108,16 +110,9 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
 
         // Check if PVE mode has changed
         if (lastPveMode !== pve_map_mode_check) {
-            // Reset image cache when PVE mode changes
             lastImageFetchMap = null;
             bossImageCache = {};
             lastPveMode = pve_map_mode_check;
-        }
-
-        // Always start with a clear display when map changes
-        if (currentGlobalLocationId !== globalThis.location) {
-            this.clearBossDisplay(ev);
-            return;
         }
 
         const locationId = globalThis.location;
@@ -141,7 +136,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
 
         // Check if bosses array exists and has enough elements
         if (!mapData.bosses || this.bossIndex >= mapData.bosses.length) {
-            // Clear any previous boss display if this boss index doesn't exist for current map
             this.clearBossDisplay(ev);
             return;
         }
@@ -162,9 +156,9 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         // Set title
         ev.action.setTitle(`${bossNameFormatted}\n${boss.spawnChance}`);
 
-        // Only fetch images when the map has changed
+        // Image fetching logic
+        // Always attempt to fetch/use image, but only re-fetch when map changes
         if (locationId !== lastImageFetchMap) {
-            // Check if we have this boss image in cache
             if (!bossImageCache[boss.id]) {
                 const imageUrl = `https://tarkovbot.eu/streamdeck/img/${boss.id}.webp`;
                 const fallbackUrl = `https://tarkovbot.eu/streamdeck/img/unknown_boss.webp`;
@@ -172,7 +166,6 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
                 try {
                     const base64Image = await this.fetchBase64Image(imageUrl, fallbackUrl);
                     if (base64Image) {
-                        // Store in cache
                         bossImageCache[boss.id] = base64Image;
                     }
                 } catch (error) {
@@ -180,12 +173,10 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
                 }
             }
 
-            // Update that we've fetched images for this map
             if (bossImageCache[boss.id]) {
                 ev.action.setImage(bossImageCache[boss.id]);
             }
         } else if (bossImageCache[boss.id]) {
-            // Use cached image if we have it
             ev.action.setImage(bossImageCache[boss.id]);
         }
 
