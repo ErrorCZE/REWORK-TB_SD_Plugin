@@ -17,9 +17,12 @@ interface BossHealth {
 }
 
 interface Boss {
+    spawnChance: number;
+    boss: any;
     id: string;
     name: string;
     health: BossHealth[];
+    
 }
 
 interface MapData {
@@ -33,13 +36,19 @@ interface MapData {
     bosses: Boss[];
 }
 
+interface LocalMapEntry {
+    localIDs: string[];
+    dataID: string;
+}
+
 interface ApiResponse {
     maps: MapData[];
 }
 
 const apiURLs = {
     PVE: "https://tarkovbot.eu/api/pve/streamdeck/maps",
-    PVP: "https://tarkovbot.eu/api/streamdeck/maps"
+    PVP: "https://tarkovbot.eu/api/streamdeck/maps",
+    LOCAL_MAP_NAMES: "https://tarkovbot.eu/api/pve/streamdeck/local-map-names"
 };
 
 async function refreshData(mode: 'PVE' | 'PVP'): Promise<void> {
@@ -88,11 +97,64 @@ function isApiResponse(data: any): data is ApiResponse {
     return data && typeof data === 'object' && Array.isArray(data.maps);
 }
 
+let localMapNames: LocalMapEntry[] = [];
+
+// Refresh local map names
+async function refreshLocalMapNames(): Promise<void> {
+    try {
+        const response = await fetch(apiURLs.LOCAL_MAP_NAMES);
+        const jsonData = await response.json();
+
+        if (isLocalMapNamesArray(jsonData)) {
+            localMapNames = jsonData;
+            streamDeck.logger.info("Local map names loaded successfully");
+        }
+    } catch (error) {
+        streamDeck.logger.error("Error fetching local map names:", error);
+    }
+}
+
+function isLocalMapNamesArray(data: any): data is LocalMapEntry[] {
+    return Array.isArray(data) && data.every(item => 
+        item && typeof item === 'object' && 
+        Array.isArray(item.localIDs) && 
+        typeof item.dataID === 'string'
+    );
+}
+
+refreshLocalMapNames();
+
 refreshData('PVE');
 refreshData('PVP');
 
+
 setInterval(() => refreshData('PVE'), 1200000);
 setInterval(() => refreshData('PVP'), 1200000);
+
+
+
+let pveMode: any;
+
+const settingsFilePath = path.join(process.cwd(), "user_settings.json");
+
+// Load settings from user_settings.json
+async function loadSettings(): Promise<void> {
+    try {
+        if (fs.existsSync(settingsFilePath)) {
+            const fileData = fs.readFileSync(settingsFilePath, "utf8");
+            const settings = JSON.parse(fileData);
+
+            pveMode = settings.current_map_info?.pve_map_mode_check || false;
+        }
+    } catch (error) {
+        streamDeck.logger.info(`Error loading settings: ${error}`);
+    }
+}
+
+// Load settings on startup
+loadSettings();
+
+
 
 let eftInstallPath: any;
 let intervalUpdateInterval: any;
@@ -134,9 +196,10 @@ export class TarkovCurrentMapInfo extends SingletonAction {
 
     private async getLatestMap(path: any): Promise<string | null> {
         try {
+            await loadSettings();
             const logsPath = `${path}\\Logs`;
             streamDeck.logger.info("Using logs path:", logsPath);
-
+    
             const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
             const logFolders = folders
                 .filter(f => f.isDirectory() && f.name.startsWith("log_"))
@@ -146,39 +209,74 @@ export class TarkovCurrentMapInfo extends SingletonAction {
                 }))
                 .sort((a, b) => b.timestamp - a.timestamp)
                 .map(f => f.dirent);
-
+    
             if (logFolders.length === 0) {
                 streamDeck.logger.info("No log folders found");
                 return null;
             }
-
+    
             const latestFolder = `${logsPath}\\${logFolders[0].name}`;
             streamDeck.logger.info("Checking latest log folder:", latestFolder);
-
+    
             const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
             const logFiles = files
                 .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
                 .sort((a, b) => b.name.localeCompare(a.name));
-
+    
             if (logFiles.length === 0) {
                 streamDeck.logger.info("No log files found in folder:", latestFolder);
                 return null;
             }
-
+    
             const latestFile = `${latestFolder}\\${logFiles[0].name}`;
             streamDeck.logger.info("Reading latest log file:", latestFile);
-
+    
             const content = await fs.promises.readFile(latestFile, "utf-8");
             const lines = content.split("\n");
-
-            for (let i = lines.length - 1; i >= 0; i--) {
-                const match = lines[i].match(/Location:\s(\w+),/);
-                if (match) {
-                    streamDeck.logger.info("Map location found:", match[1]);
-                    return match[1];
+    
+            // Check based on pve_map_mode_check setting
+            if (pveMode) {
+                // Using scene preset path method for PVE mode
+                let latestMapName = null;
+                
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const sceneMatch = lines[i].match(/rcid:(\w+)\.scenespreset\.asset/);
+                    if (sceneMatch) {
+                        const mapName = sceneMatch[1].toLowerCase();
+                        streamDeck.logger.info("Map name from scene:", mapName);
+                        latestMapName = mapName;
+                        
+                        // Only process the last map found - exit after first match when reading backward
+                        break;
+                    }
+                }
+                
+                if (latestMapName) {
+                    // Check if map name exists in localMapNames
+                    if (localMapNames) {
+                        for (const mapEntry of localMapNames) {
+                            const localIDsLowercase = mapEntry.localIDs.map(id => id.toLowerCase());
+                            if (localIDsLowercase.includes(latestMapName)) {
+                                streamDeck.logger.info("Map location found (PVE mode):", mapEntry.dataID);
+                                return mapEntry.dataID;
+                            }
+                        }
+                        streamDeck.logger.info("No matching dataID found for map:", latestMapName);
+                    }
+                    // If we couldn't map it, just return the map name we found
+                    return latestMapName;
+                }
+            } else {
+                // Using original Location method
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const match = lines[i].match(/Location:\s(\w+),/);
+                    if (match) {
+                        streamDeck.logger.info("Map location found:", match[1]);
+                        return match[1];
+                    }
                 }
             }
-
+    
             streamDeck.logger.info("No location found in latest file:", latestFile);
             return null;
         } catch (error) {
@@ -270,5 +368,5 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             });
         });
     }
- 
+
 }

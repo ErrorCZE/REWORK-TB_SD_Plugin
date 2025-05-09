@@ -90,7 +90,7 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 			const formattedDatacenter = this.serverInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
 			ev.action.setTitle(`\n\n${formattedDatacenter}`);
 		} else {
-			ev.action.setTitle("No\nServer\nFound");
+			ev.action.setTitle("\n\nNo\nServer\nFound");
 		}
 	}
 	
