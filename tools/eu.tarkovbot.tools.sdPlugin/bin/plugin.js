@@ -8358,7 +8358,7 @@ let TarkovCurrentMapInfo = (() => {
                     // Using scene preset path method for PVE mode
                     let latestMapName = null;
                     for (let i = lines.length - 1; i >= 0; i--) {
-                        const sceneMatch = lines[i].match(/rcid:(\w+)\.scenespreset\.asset/);
+                        const sceneMatch = lines[i].match(/rcid:([\w_]+)\.ScenesPreset\.asset/i);
                         if (sceneMatch) {
                             const mapName = sceneMatch[1].toLowerCase();
                             streamDeck.logger.info("Map name from scene:", mapName);
