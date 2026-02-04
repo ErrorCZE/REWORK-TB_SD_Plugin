@@ -3,10 +3,7 @@ import {
     action,
     SingletonAction,
     WillAppearEvent,
-    KeyDownEvent,
-    DidReceiveSettingsEvent,
-    WillDisappearEvent,
-    JsonObject
+    KeyDownEvent
 } from "@elgato/streamdeck";
 
 @action({ UUID: "eu.tarkovbot.tools.mapinfo.mainprofile" })

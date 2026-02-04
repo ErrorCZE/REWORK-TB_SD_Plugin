@@ -5,11 +5,13 @@ import {
     WillAppearEvent,
     KeyDownEvent,
     DidReceiveSettingsEvent,
-    WillDisappearEvent,
-    JsonObject
+    SendToPluginEvent,
 } from "@elgato/streamdeck";
 import fs from "fs";
 import path from "path";
+import { loadSettings, saveSettings, SETTINGS_FILE_PATH } from "../utils/settings";
+import { extractTimestamp, getLatestLogFile } from "../utils/log-parser";
+import { detectEftPath } from "../utils/eft-path";
 
 interface BossHealth {
     bodyPart: string;
@@ -22,7 +24,7 @@ interface Boss {
     id: string;
     name: string;
     health: BossHealth[];
-    
+
 }
 
 interface MapData {
@@ -115,9 +117,9 @@ async function refreshLocalMapNames(): Promise<void> {
 }
 
 function isLocalMapNamesArray(data: any): data is LocalMapEntry[] {
-    return Array.isArray(data) && data.every(item => 
-        item && typeof item === 'object' && 
-        Array.isArray(item.localIDs) && 
+    return Array.isArray(data) && data.every(item =>
+        item && typeof item === 'object' &&
+        Array.isArray(item.localIDs) &&
         typeof item.dataID === 'string'
     );
 }
@@ -132,31 +134,6 @@ setInterval(() => refreshData('PVE'), 1200000);
 setInterval(() => refreshData('PVP'), 1200000);
 
 
-
-let pveMode: any;
-
-const settingsFilePath = path.join(process.cwd(), "user_settings.json");
-
-// Load settings from user_settings.json
-async function loadSettings(): Promise<void> {
-    try {
-        if (fs.existsSync(settingsFilePath)) {
-            const fileData = fs.readFileSync(settingsFilePath, "utf8");
-            const settings = JSON.parse(fileData);
-
-            pveMode = settings.current_map_info?.pve_map_mode_check || false;
-        }
-    } catch (error) {
-        streamDeck.logger.info(`Error loading settings: ${error}`);
-    }
-}
-
-// Load settings on startup
-loadSettings();
-
-
-
-let eftInstallPath: any;
 let intervalUpdateInterval: any;
 
 @action({ UUID: "eu.tarkovbot.tools.mapinfo" })
@@ -167,7 +144,7 @@ export class TarkovCurrentMapInfo extends SingletonAction {
     }
 
     override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-        eftInstallPath = ev.payload.settings.eft_install_path;
+        const eftInstallPath = ev.payload.settings.eft_install_path;
         streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
 
         if (intervalUpdateInterval) {
@@ -194,63 +171,65 @@ export class TarkovCurrentMapInfo extends SingletonAction {
         }
     }
 
-    private async getLatestMap(path: any): Promise<string | null> {
+    private async getLatestMap(eftPath: any): Promise<string | null> {
         try {
-            await loadSettings();
-            const logsPath = `${path}\\Logs`;
+            const settings = loadSettings();
+            const pveMode = settings.pve_map_mode_check;
+
+            const logsPath = `${eftPath}\\Logs`;
             streamDeck.logger.info("Using logs path:", logsPath);
-    
+
             const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
             const logFolders = folders
                 .filter(f => f.isDirectory() && f.name.startsWith("log_"))
                 .map(f => ({
                     dirent: f,
-                    timestamp: this.extractTimestamp(f.name)
+                    timestamp: extractTimestamp(f.name)
                 }))
                 .sort((a, b) => b.timestamp - a.timestamp)
                 .map(f => f.dirent);
-    
+
             if (logFolders.length === 0) {
                 streamDeck.logger.info("No log folders found");
                 return null;
             }
-    
+
             const latestFolder = `${logsPath}\\${logFolders[0].name}`;
             streamDeck.logger.info("Checking latest log folder:", latestFolder);
-    
+
             const files = await fs.promises.readdir(latestFolder, { withFileTypes: true });
             const logFiles = files
                 .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
                 .sort((a, b) => b.name.localeCompare(a.name));
-    
+
             if (logFiles.length === 0) {
                 streamDeck.logger.info("No log files found in folder:", latestFolder);
                 return null;
             }
-    
+
             const latestFile = `${latestFolder}\\${logFiles[0].name}`;
             streamDeck.logger.info("Reading latest log file:", latestFile);
-    
+
             const content = await fs.promises.readFile(latestFile, "utf-8");
             const lines = content.split("\n");
-    
+
             // Check based on pve_map_mode_check setting
             if (pveMode) {
                 // Using scene preset path method for PVE mode
                 let latestMapName = null;
-                
+
                 for (let i = lines.length - 1; i >= 0; i--) {
                     const sceneMatch = lines[i].match(/rcid:([\w_]+)\.ScenesPreset\.asset/i);
                     if (sceneMatch) {
                         const mapName = sceneMatch[1].toLowerCase();
                         streamDeck.logger.info("Map name from scene:", mapName);
                         latestMapName = mapName;
-                        
+
                         // Only process the last map found - exit after first match when reading backward
                         break;
                     }
                 }
-                
+
                 if (latestMapName) {
                     // Check if map name exists in localMapNames
                     if (localMapNames) {
@@ -276,34 +255,12 @@ export class TarkovCurrentMapInfo extends SingletonAction {
                     }
                 }
             }
-    
+
             streamDeck.logger.info("No location found in latest file:", latestFile);
             return null;
         } catch (error) {
             streamDeck.logger.error("Error reading logs:", error);
             return null;
-        }
-    }
-
-    private extractTimestamp(folderName: string): number {
-        try {
-            const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
-            if (match) {
-                const [_, year, month, day, hour, minute, second] = match;
-                const date = new Date(
-                    parseInt(year),
-                    parseInt(month) - 1,
-                    parseInt(day),
-                    parseInt(hour),
-                    parseInt(minute),
-                    parseInt(second)
-                );
-                return date.getTime();
-            }
-            return 0;
-        } catch (error) {
-            streamDeck.logger.error("Error parsing timestamp:", error);
-            return 0;
         }
     }
 
@@ -344,29 +301,51 @@ export class TarkovCurrentMapInfo extends SingletonAction {
             },
         };
 
-        const settingsFilePath = path.join(process.cwd(), 'user_settings.json');
-
-        fs.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
-            let existingData = {};
-
-            if (!readErr) {
-                try {
-                    existingData = JSON.parse(fileData);
-                } catch (parseErr) {
-                    streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
-                }
-            }
-
-            const mergedData = { ...existingData, ...updatedData };
-
-            fs.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
-                if (writeErr) {
-                    streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
-                } else {
-                    streamDeck.logger.info("Settings successfully updated in user_settings.json");
-                }
-            });
-        });
+        saveSettings(updatedData);
     }
 
+    override async onSendToPlugin(ev: SendToPluginEvent<any, any>): Promise<void> {
+        const payload = ev.payload as any;
+        streamDeck.logger.info("onSendToPlugin received:", JSON.stringify(payload));
+
+        if (payload.command === "autoDetectPath") {
+            streamDeck.logger.info("Starting auto-detect path...");
+            const result = await detectEftPath();
+            streamDeck.logger.info("Auto-detect result:", JSON.stringify(result));
+
+            if (result.success && result.path) {
+                // Update the action settings with the detected path
+                await ev.action.setSettings({
+                    ...await ev.action.getSettings(),
+                    eft_install_path: result.path
+                });
+
+                // Save to global settings
+                saveSettings({
+                    global: { eft_install_path: result.path }
+                });
+
+                // Send success response back to property inspector
+                await streamDeck.ui.current?.sendToPropertyInspector({
+                    event: "autoDetectResult",
+                    success: true,
+                    path: result.path
+                });
+            } else {
+                // Send error response
+                await streamDeck.ui.current?.sendToPropertyInspector({
+                    event: "autoDetectResult",
+                    success: false,
+                    error: result.error
+                });
+            }
+        } else if (payload.command === "getGlobalSettings") {
+            const settings = loadSettings();
+            streamDeck.logger.info("Sending global settings:", settings.eftInstallPath);
+            await streamDeck.ui.current?.sendToPropertyInspector({
+                event: "globalSettings",
+                eft_install_path: settings.eftInstallPath
+            });
+        }
+    }
 }

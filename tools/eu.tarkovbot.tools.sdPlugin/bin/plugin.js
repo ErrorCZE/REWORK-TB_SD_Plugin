@@ -1,18 +1,20 @@
-import require$$0$2 from 'stream';
-import require$$0 from 'zlib';
-import require$$0$1 from 'buffer';
-import require$$1 from 'crypto';
 import require$$0$3 from 'events';
 import require$$1$1 from 'https';
 import require$$2 from 'http';
 import require$$3 from 'net';
 import require$$4 from 'tls';
+import require$$1 from 'crypto';
+import require$$0$2 from 'stream';
 import require$$7 from 'url';
+import require$$0 from 'zlib';
+import require$$0$1 from 'buffer';
 import path, { join } from 'node:path';
 import { cwd } from 'node:process';
 import fs, { existsSync, readFileSync } from 'node:fs';
 import fs$1 from 'fs';
 import path$1 from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
 /**!
  * @author Elgato
@@ -65,6 +67,14 @@ var DeviceType;
      * Stream Deck Neo, comprised of 8 customizable LCD keys in a 4 x 2 layout, an info bar, and 2 touch points for page navigation.
      */
     DeviceType[DeviceType["StreamDeckNeo"] = 9] = "StreamDeckNeo";
+    /**
+     * Stream Deck Studio, comprised of 32 customizable LCD keys in a 16 x 2 layout, and 2 dials (1 on either side).
+     */
+    DeviceType[DeviceType["StreamDeckStudio"] = 10] = "StreamDeckStudio";
+    /**
+     * Virtual Stream Deck, comprised of 1 to 64 action (on-screen) on a scalable canvas, with a maximum layout of 8 x 8.
+     */
+    DeviceType[DeviceType["VirtualStreamDeck"] = 11] = "VirtualStreamDeck";
 })(DeviceType || (DeviceType = {}));
 
 /**
@@ -120,6 +130,7 @@ function requireConstants () {
 
 	constants = {
 	  BINARY_TYPES,
+	  CLOSE_TIMEOUT: 30000,
 	  EMPTY_BUFFER: Buffer.alloc(0),
 	  GUID: '258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
 	  hasBlob,
@@ -834,6 +845,14 @@ function requirePermessageDeflate () {
 	  this[kError].code = 'WS_ERR_UNSUPPORTED_MESSAGE_LENGTH';
 	  this[kError][kStatusCode] = 1009;
 	  this.removeListener('data', inflateOnData);
+
+	  //
+	  // The choice to employ `zlib.reset()` over `zlib.close()` is dictated by the
+	  // fact that in Node.js versions prior to 13.10.0, the callback for
+	  // `zlib.flush()` is not called if `zlib.close()` is used. Utilizing
+	  // `zlib.reset()` ensures that either the callback is invoked or an error is
+	  // emitted.
+	  //
 	  this.reset();
 	}
 
@@ -849,6 +868,12 @@ function requirePermessageDeflate () {
 	  // closed when an error is emitted.
 	  //
 	  this[kPerMessageDeflate]._inflate = null;
+
+	  if (this[kError]) {
+	    this[kCallback](this[kError]);
+	    return;
+	  }
+
 	  err[kStatusCode] = 1007;
 	  this[kCallback](err);
 	}
@@ -1730,8 +1755,6 @@ function requireReceiver () {
 	return receiver;
 }
 
-requireReceiver();
-
 /* eslint no-unused-vars: ["error", { "varsIgnorePattern": "^Duplex" }] */
 
 var sender;
@@ -1740,6 +1763,8 @@ var hasRequiredSender;
 function requireSender () {
 	if (hasRequiredSender) return sender;
 	hasRequiredSender = 1;
+
+	const { Duplex } = require$$0$2;
 	const { randomFillSync } = require$$1;
 
 	const PerMessageDeflate = requirePermessageDeflate();
@@ -2288,7 +2313,7 @@ function requireSender () {
 	  /**
 	   * Sends a frame.
 	   *
-	   * @param {Buffer[]} list The frame to send
+	   * @param {(Buffer | String)[]} list The frame to send
 	   * @param {Function} [cb] Callback
 	   * @private
 	   */
@@ -2339,8 +2364,6 @@ function requireSender () {
 	}
 	return sender;
 }
-
-requireSender();
 
 var eventTarget;
 var hasRequiredEventTarget;
@@ -2868,6 +2891,7 @@ function requireWebsocket () {
 	const net = require$$3;
 	const tls = require$$4;
 	const { randomBytes, createHash } = require$$1;
+	const { Duplex, Readable } = require$$0$2;
 	const { URL } = require$$7;
 
 	const PerMessageDeflate = requirePermessageDeflate();
@@ -2877,6 +2901,7 @@ function requireWebsocket () {
 
 	const {
 	  BINARY_TYPES,
+	  CLOSE_TIMEOUT,
 	  EMPTY_BUFFER,
 	  GUID,
 	  kForOnEventAttribute,
@@ -2891,7 +2916,6 @@ function requireWebsocket () {
 	const { format, parse } = requireExtension();
 	const { toBuffer } = requireBufferUtil();
 
-	const closeTimeout = 30 * 1000;
 	const kAborted = Symbol('kAborted');
 	const protocolVersions = [8, 13];
 	const readyStates = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
@@ -2947,6 +2971,7 @@ function requireWebsocket () {
 	      initAsClient(this, address, protocols, options);
 	    } else {
 	      this._autoPong = options.autoPong;
+	      this._closeTimeout = options.closeTimeout;
 	      this._isServer = true;
 	    }
 	  }
@@ -3488,6 +3513,8 @@ function requireWebsocket () {
 	 *     times in the same tick
 	 * @param {Boolean} [options.autoPong=true] Specifies whether or not to
 	 *     automatically send a pong in response to a ping
+	 * @param {Number} [options.closeTimeout=30000] Duration in milliseconds to wait
+	 *     for the closing handshake to finish after `websocket.close()` is called
 	 * @param {Function} [options.finishRequest] A function which can be used to
 	 *     customize the headers of each http request before it is sent
 	 * @param {Boolean} [options.followRedirects=false] Whether or not to follow
@@ -3514,6 +3541,7 @@ function requireWebsocket () {
 	  const opts = {
 	    allowSynchronousEvents: true,
 	    autoPong: true,
+	    closeTimeout: CLOSE_TIMEOUT,
 	    protocolVersion: protocolVersions[1],
 	    maxPayload: 100 * 1024 * 1024,
 	    skipUTF8Validation: false,
@@ -3532,6 +3560,7 @@ function requireWebsocket () {
 	  };
 
 	  websocket._autoPong = opts.autoPong;
+	  websocket._closeTimeout = opts.closeTimeout;
 
 	  if (!protocolVersions.includes(opts.protocolVersion)) {
 	    throw new RangeError(
@@ -3567,7 +3596,7 @@ function requireWebsocket () {
 	  if (parsedUrl.protocol !== 'ws:' && !isSecure && !isIpcUrl) {
 	    invalidUrlMessage =
 	      'The URL\'s protocol must be one of "ws:", "wss:", ' +
-	      '"http:", "https", or "ws+unix:"';
+	      '"http:", "https:", or "ws+unix:"';
 	  } else if (isIpcUrl && !parsedUrl.pathname) {
 	    invalidUrlMessage = "The URL's pathname is empty";
 	  } else if (parsedUrl.hash) {
@@ -4149,7 +4178,7 @@ function requireWebsocket () {
 	function setCloseTimer(websocket) {
 	  websocket._closeTimer = setTimeout(
 	    websocket._socket.destroy.bind(websocket._socket),
-	    closeTimeout
+	    websocket._closeTimeout
 	  );
 	}
 
@@ -4167,23 +4196,23 @@ function requireWebsocket () {
 
 	  websocket._readyState = WebSocket.CLOSING;
 
-	  let chunk;
-
 	  //
 	  // The close frame might not have been received or the `'end'` event emitted,
 	  // for example, if the socket was destroyed due to an error. Ensure that the
 	  // `receiver` stream is closed after writing any remaining buffered data to
 	  // it. If the readable side of the socket is in flowing mode then there is no
-	  // buffered data as everything has been already written and `readable.read()`
-	  // will return `null`. If instead, the socket is paused, any possible buffered
-	  // data will be read as a single chunk.
+	  // buffered data as everything has been already written. If instead, the
+	  // socket is paused, any possible buffered data will be read as a single
+	  // chunk.
 	  //
 	  if (
 	    !this._readableState.endEmitted &&
 	    !websocket._closeFrameReceived &&
 	    !websocket._receiver._writableState.errorEmitted &&
-	    (chunk = websocket._socket.read()) !== null
+	    this._readableState.length !== 0
 	  ) {
+	    const chunk = this.read(this._readableState.length);
+
 	    websocket._receiver.write(chunk);
 	  }
 
@@ -4247,6 +4276,182 @@ function requireWebsocket () {
 	}
 	return websocket;
 }
+
+/* eslint no-unused-vars: ["error", { "varsIgnorePattern": "^WebSocket$" }] */
+
+var stream;
+var hasRequiredStream;
+
+function requireStream () {
+	if (hasRequiredStream) return stream;
+	hasRequiredStream = 1;
+
+	requireWebsocket();
+	const { Duplex } = require$$0$2;
+
+	/**
+	 * Emits the `'close'` event on a stream.
+	 *
+	 * @param {Duplex} stream The stream.
+	 * @private
+	 */
+	function emitClose(stream) {
+	  stream.emit('close');
+	}
+
+	/**
+	 * The listener of the `'end'` event.
+	 *
+	 * @private
+	 */
+	function duplexOnEnd() {
+	  if (!this.destroyed && this._writableState.finished) {
+	    this.destroy();
+	  }
+	}
+
+	/**
+	 * The listener of the `'error'` event.
+	 *
+	 * @param {Error} err The error
+	 * @private
+	 */
+	function duplexOnError(err) {
+	  this.removeListener('error', duplexOnError);
+	  this.destroy();
+	  if (this.listenerCount('error') === 0) {
+	    // Do not suppress the throwing behavior.
+	    this.emit('error', err);
+	  }
+	}
+
+	/**
+	 * Wraps a `WebSocket` in a duplex stream.
+	 *
+	 * @param {WebSocket} ws The `WebSocket` to wrap
+	 * @param {Object} [options] The options for the `Duplex` constructor
+	 * @return {Duplex} The duplex stream
+	 * @public
+	 */
+	function createWebSocketStream(ws, options) {
+	  let terminateOnDestroy = true;
+
+	  const duplex = new Duplex({
+	    ...options,
+	    autoDestroy: false,
+	    emitClose: false,
+	    objectMode: false,
+	    writableObjectMode: false
+	  });
+
+	  ws.on('message', function message(msg, isBinary) {
+	    const data =
+	      !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
+
+	    if (!duplex.push(data)) ws.pause();
+	  });
+
+	  ws.once('error', function error(err) {
+	    if (duplex.destroyed) return;
+
+	    // Prevent `ws.terminate()` from being called by `duplex._destroy()`.
+	    //
+	    // - If the `'error'` event is emitted before the `'open'` event, then
+	    //   `ws.terminate()` is a noop as no socket is assigned.
+	    // - Otherwise, the error is re-emitted by the listener of the `'error'`
+	    //   event of the `Receiver` object. The listener already closes the
+	    //   connection by calling `ws.close()`. This allows a close frame to be
+	    //   sent to the other peer. If `ws.terminate()` is called right after this,
+	    //   then the close frame might not be sent.
+	    terminateOnDestroy = false;
+	    duplex.destroy(err);
+	  });
+
+	  ws.once('close', function close() {
+	    if (duplex.destroyed) return;
+
+	    duplex.push(null);
+	  });
+
+	  duplex._destroy = function (err, callback) {
+	    if (ws.readyState === ws.CLOSED) {
+	      callback(err);
+	      process.nextTick(emitClose, duplex);
+	      return;
+	    }
+
+	    let called = false;
+
+	    ws.once('error', function error(err) {
+	      called = true;
+	      callback(err);
+	    });
+
+	    ws.once('close', function close() {
+	      if (!called) callback(err);
+	      process.nextTick(emitClose, duplex);
+	    });
+
+	    if (terminateOnDestroy) ws.terminate();
+	  };
+
+	  duplex._final = function (callback) {
+	    if (ws.readyState === ws.CONNECTING) {
+	      ws.once('open', function open() {
+	        duplex._final(callback);
+	      });
+	      return;
+	    }
+
+	    // If the value of the `_socket` property is `null` it means that `ws` is a
+	    // client websocket and the handshake failed. In fact, when this happens, a
+	    // socket is never assigned to the websocket. Wait for the `'error'` event
+	    // that will be emitted by the websocket.
+	    if (ws._socket === null) return;
+
+	    if (ws._socket._writableState.finished) {
+	      callback();
+	      if (duplex._readableState.endEmitted) duplex.destroy();
+	    } else {
+	      ws._socket.once('finish', function finish() {
+	        // `duplex` is not destroyed here because the `'end'` event will be
+	        // emitted on `duplex` after this `'finish'` event. The EOF signaling
+	        // `null` chunk is, in fact, pushed when the websocket emits `'close'`.
+	        callback();
+	      });
+	      ws.close();
+	    }
+	  };
+
+	  duplex._read = function () {
+	    if (ws.isPaused) ws.resume();
+	  };
+
+	  duplex._write = function (chunk, encoding, callback) {
+	    if (ws.readyState === ws.CONNECTING) {
+	      ws.once('open', function open() {
+	        duplex._write(chunk, encoding, callback);
+	      });
+	      return;
+	    }
+
+	    ws.send(chunk, callback);
+	  };
+
+	  duplex.on('end', duplexOnEnd);
+	  duplex.on('error', duplexOnError);
+	  return duplex;
+	}
+
+	stream = createWebSocketStream;
+	return stream;
+}
+
+requireStream();
+
+requireReceiver();
+
+requireSender();
 
 var websocketExports = requireWebsocket();
 var WebSocket = /*@__PURE__*/getDefaultExportFromCjs(websocketExports);
@@ -4332,13 +4537,14 @@ function requireWebsocketServer () {
 
 	const EventEmitter = require$$0$3;
 	const http = require$$2;
+	const { Duplex } = require$$0$2;
 	const { createHash } = require$$1;
 
 	const extension = requireExtension();
 	const PerMessageDeflate = requirePermessageDeflate();
 	const subprotocol = requireSubprotocol();
 	const WebSocket = requireWebsocket();
-	const { GUID, kWebSocket } = requireConstants();
+	const { CLOSE_TIMEOUT, GUID, kWebSocket } = requireConstants();
 
 	const keyRegex = /^[+/0-9A-Za-z]{22}==$/;
 
@@ -4365,6 +4571,9 @@ function requireWebsocketServer () {
 	   *     pending connections
 	   * @param {Boolean} [options.clientTracking=true] Specifies whether or not to
 	   *     track clients
+	   * @param {Number} [options.closeTimeout=30000] Duration in milliseconds to
+	   *     wait for the closing handshake to finish after `websocket.close()` is
+	   *     called
 	   * @param {Function} [options.handleProtocols] A hook to handle protocols
 	   * @param {String} [options.host] The hostname where to bind the server
 	   * @param {Number} [options.maxPayload=104857600] The maximum allowed message
@@ -4394,6 +4603,7 @@ function requireWebsocketServer () {
 	      perMessageDeflate: false,
 	      handleProtocols: null,
 	      clientTracking: true,
+	      closeTimeout: CLOSE_TIMEOUT,
 	      verifyClient: null,
 	      noServer: false,
 	      backlog: null, // use default (511 as implemented in net.js)
@@ -4583,9 +4793,11 @@ function requireWebsocketServer () {
 	      return;
 	    }
 
-	    if (version !== 8 && version !== 13) {
+	    if (version !== 13 && version !== 8) {
 	      const message = 'Missing or invalid Sec-WebSocket-Version header';
-	      abortHandshakeOrEmitwsClientError(this, req, socket, 400, message);
+	      abortHandshakeOrEmitwsClientError(this, req, socket, 400, message, {
+	        'Sec-WebSocket-Version': '13, 8'
+	      });
 	      return;
 	    }
 
@@ -4853,16 +5065,24 @@ function requireWebsocketServer () {
 	 * @param {Duplex} socket The socket of the upgrade request
 	 * @param {Number} code The HTTP response status code
 	 * @param {String} message The HTTP response body
+	 * @param {Object} [headers] The HTTP response headers
 	 * @private
 	 */
-	function abortHandshakeOrEmitwsClientError(server, req, socket, code, message) {
+	function abortHandshakeOrEmitwsClientError(
+	  server,
+	  req,
+	  socket,
+	  code,
+	  message,
+	  headers
+	) {
 	  if (server.listenerCount('wsClientError')) {
 	    const err = new Error(message);
 	    Error.captureStackTrace(err, abortHandshakeOrEmitwsClientError);
 
 	    server.emit('wsClientError', err, socket, req);
 	  } else {
-	    abortHandshake(socket, code, message);
+	    abortHandshake(socket, code, message, headers);
 	  }
 	}
 	return websocketServer;
@@ -5826,6 +6046,37 @@ class DidReceiveGlobalSettingsEvent extends Event {
 }
 
 /**
+ * Provides a wrapper around a value that is lazily instantiated.
+ */
+class Lazy {
+    /**
+     * Private backing field for {@link Lazy.value}.
+     */
+    #value = undefined;
+    /**
+     * Factory responsible for instantiating the value.
+     */
+    #valueFactory;
+    /**
+     * Initializes a new instance of the {@link Lazy} class.
+     * @param valueFactory The factory responsible for instantiating the value.
+     */
+    constructor(valueFactory) {
+        this.#valueFactory = valueFactory;
+    }
+    /**
+     * Gets the value.
+     * @returns The value.
+     */
+    get value() {
+        if (this.#value === undefined) {
+            this.#value = this.#valueFactory();
+        }
+        return this.#value;
+    }
+}
+
+/**
  * Wraps an underlying Promise{T}, exposing the resolve and reject delegates as methods, allowing for it to be awaited, resolved, or rejected externally.
  */
 class PromiseCompletionSource {
@@ -6545,6 +6796,20 @@ class Enumerable {
     toArray() {
         return Array.from(this);
     }
+    /**
+     * Converts this iterator to serializable collection.
+     * @returns The serializable collection of items.
+     */
+    toJSON() {
+        return this.toArray();
+    }
+    /**
+     * Converts this iterator to a string.
+     * @returns The string.
+     */
+    toString() {
+        return `${this.toArray()}`;
+    }
 }
 
 const __items$1 = new Map();
@@ -7054,6 +7319,18 @@ class ActionContext {
     get manifestId() {
         return this.#source.action;
     }
+    /**
+     * Converts this instance to a serializable object.
+     * @returns The serializable object.
+     */
+    toJSON() {
+        return {
+            controllerType: this.controllerType,
+            device: this.device,
+            id: this.id,
+            manifestId: this.manifestId,
+        };
+    }
 }
 
 /**
@@ -7220,6 +7497,15 @@ class DialAction extends Action {
             payload: descriptions || {},
         });
     }
+    /**
+     * @inheritdoc
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            coordinates: this.coordinates,
+        };
+    }
 }
 
 /**
@@ -7323,9 +7609,19 @@ class KeyAction extends Action {
             context: this.id,
         });
     }
+    /**
+     * @inheritdoc
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            coordinates: this.coordinates,
+            isInMultiAction: this.isInMultiAction(),
+        };
+    }
 }
 
-const manifest = getManifest();
+const manifest = new Lazy(() => getManifest());
 /**
  * Provides functions, and information, for interacting with Stream Deck actions.
  */
@@ -7483,7 +7779,7 @@ class ActionService extends ReadOnlyActionStore {
         if (action.manifestId === undefined) {
             throw new Error("The action's manifestId cannot be undefined.");
         }
-        if (!manifest.Actions.some((a) => a.UUID === action.manifestId)) {
+        if (!manifest.value.Actions.some((a) => a.UUID === action.manifestId)) {
             throw new Error(`The action's manifestId was not found within the manifest: ${action.manifestId}`);
         }
         // Routes an event to the action, when the applicable listener is defined on the action.
@@ -7521,6 +7817,28 @@ class ActionService extends ReadOnlyActionStore {
 const actionService = new ActionService();
 
 /**
+ * Validates the {@link streamDeckVersion} and manifest's `Software.MinimumVersion` are at least the {@link minimumVersion}; when the version is not fulfilled, an error is thrown with the
+ * {@link feature} formatted into the message.
+ * @param minimumVersion Minimum required version.
+ * @param streamDeckVersion Actual application version.
+ * @param feature Feature that requires the version.
+ */
+function requiresVersion(minimumVersion, streamDeckVersion, feature) {
+    const required = {
+        major: Math.floor(minimumVersion),
+        minor: Number(minimumVersion.toString().split(".").at(1) ?? 0), // Account for JavaScript's floating point precision.
+        patch: 0,
+        build: 0,
+    };
+    if (streamDeckVersion.compareTo(required) === -1) {
+        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher, but current version is ${streamDeckVersion.major}.${streamDeckVersion.minor}; please update Stream Deck and the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
+    }
+    else if (getSoftwareMinimumVersion().compareTo(required) === -1) {
+        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher; please update the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
+    }
+}
+
+/**
  * Provides information about a device.
  */
 class Device {
@@ -7551,6 +7869,12 @@ class Device {
             if (ev.device === this.id) {
                 this.#info = ev.deviceInfo;
                 this.#isConnected = true;
+            }
+        });
+        // Track changes.
+        connection.prependListener("deviceDidChange", (ev) => {
+            if (ev.device === this.id) {
+                this.#info = ev.deviceInfo;
             }
         });
         // Set disconnected.
@@ -7610,12 +7934,29 @@ class DeviceService extends ReadOnlyDeviceStore {
         connection.once("connected", (info) => {
             info.devices.forEach((dev) => deviceStore.set(new Device(dev.id, dev, false)));
         });
-        // Add new devices.
+        // Add new devices that were connected.
         connection.on("deviceDidConnect", ({ device: id, deviceInfo }) => {
             if (!deviceStore.getDeviceById(id)) {
                 deviceStore.set(new Device(id, deviceInfo, true));
             }
         });
+        // Add new devices that were changed (Virtual Stream Deck event race).
+        connection.on("deviceDidChange", ({ device: id, deviceInfo }) => {
+            if (!deviceStore.getDeviceById(id)) {
+                deviceStore.set(new Device(id, deviceInfo, false));
+            }
+        });
+    }
+    /**
+     * Occurs when a Stream Deck device changed, for example its name or size.
+     *
+     * Available from Stream Deck 7.0.
+     * @param listener Function to be invoked when the event occurs.
+     * @returns A disposable that, when disposed, removes the listener.
+     */
+    onDeviceDidChange(listener) {
+        requiresVersion(7.0, connection.version, "onDeviceDidChange");
+        return connection.disposableOn("deviceDidChange", (ev) => listener(new DeviceEvent(ev, this.getDeviceById(ev.device))));
     }
     /**
      * Occurs when a Stream Deck device is connected. See also {@link DeviceService.onDeviceDidConnect}.
@@ -7661,26 +8002,14 @@ function fileSystemLocaleProvider(language) {
 }
 
 /**
- * Validates the {@link streamDeckVersion} and manifest's `Software.MinimumVersion` are at least the {@link minimumVersion}; when the version is not fulfilled, an error is thrown with the
- * {@link feature} formatted into the message.
- * @param minimumVersion Minimum required version.
- * @param streamDeckVersion Actual application version.
- * @param feature Feature that requires the version.
+ * Collection of error codes.
  */
-function requiresVersion(minimumVersion, streamDeckVersion, feature) {
-    const required = {
-        major: Math.floor(minimumVersion),
-        minor: (minimumVersion % 1) * 10,
-        patch: 0,
-        build: 0,
-    };
-    if (streamDeckVersion.compareTo(required) === -1) {
-        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher, but current version is ${streamDeckVersion.major}.${streamDeckVersion.minor}; please update Stream Deck and the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
-    }
-    else if (getSoftwareMinimumVersion().compareTo(required) === -1) {
-        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher; please update the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
-    }
-}
+const errorCode = {
+    /**
+     * Indicates the current Node.js SDK is not compatible with the SDK Version specified within the manifest.
+     */
+    incompatibleSdkVersion: 652025,
+};
 
 /**
  * Requests the Stream Deck switches the current profile of the specified {@link deviceId} to the {@link profile}; when no {@link profile} is provided the previously active profile
@@ -7889,6 +8218,13 @@ const streamDeck = {
     },
 };
 registerCreateLogEntryRoute(router, logger);
+/**
+ * Validate compatibility with manifest `SDKVersion`.
+ */
+if (streamDeck.manifest.SDKVersion >= 3) {
+    logger.error("[ERR_NOT_SUPPORTED]: Manifest SDKVersion 3 requires @elgato/streamdeck 2.0 or higher.");
+    process.exit(errorCode.incompatibleSdkVersion);
+}
 
 /******************************************************************************
 Copyright (c) Microsoft Corporation.
@@ -8190,6 +8526,190 @@ let TarkovTraderRestock = (() => {
     return _classThis;
 })();
 
+const SETTINGS_FILE_PATH = path$1.join(process.cwd(), "user_settings.json");
+/**
+ * Load settings from user_settings.json
+ */
+function loadSettings() {
+    try {
+        if (fs$1.existsSync(SETTINGS_FILE_PATH)) {
+            const fileData = fs$1.readFileSync(SETTINGS_FILE_PATH, "utf8");
+            const settings = JSON.parse(fileData);
+            return {
+                map_autoupdate_check: settings.current_map_info?.map_autoupdate_check || false,
+                pve_map_mode_check: settings.current_map_info?.pve_map_mode_check || false,
+                eftInstallPath: settings.global?.eft_install_path || ""
+            };
+        }
+    }
+    catch (error) {
+        // Silent fail, return defaults
+    }
+    return {
+        map_autoupdate_check: false,
+        pve_map_mode_check: false,
+        eftInstallPath: ""
+    };
+}
+/**
+ * Save settings to user_settings.json, merging with existing data
+ */
+function saveSettings(updates) {
+    try {
+        let existingData = {};
+        if (fs$1.existsSync(SETTINGS_FILE_PATH)) {
+            const fileData = fs$1.readFileSync(SETTINGS_FILE_PATH, "utf8");
+            existingData = JSON.parse(fileData);
+        }
+        const mergedData = { ...existingData, ...updates };
+        fs$1.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(mergedData, null, 4));
+    }
+    catch (error) {
+        // Silent fail
+    }
+}
+
+/**
+ * Extract timestamp from log folder name (format: log_YYYY.MM.DD_HH-MM-SS)
+ */
+function extractTimestamp(folderName) {
+    try {
+        const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
+        if (match) {
+            const [_, year, month, day, hour, minute, second] = match;
+            const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+            return date.getTime();
+        }
+        return 0;
+    }
+    catch (error) {
+        return 0;
+    }
+}
+/**
+ * Get sorted log folders from EFT Logs directory (newest first)
+ */
+async function getLogFolders(eftPath) {
+    const logsPath = `${eftPath}\\Logs`;
+    const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
+    return folders
+        .filter(f => f.isDirectory() && f.name.startsWith("log_"))
+        .map(f => ({
+        dirent: f,
+        timestamp: extractTimestamp(f.name)
+    }))
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .map(f => f.dirent);
+}
+/**
+ * Get the latest application log file from EFT logs
+ */
+async function getLatestLogFile(eftPath) {
+    try {
+        const logsPath = `${eftPath}\\Logs`;
+        const logFolders = await getLogFolders(eftPath);
+        if (logFolders.length === 0) {
+            return null;
+        }
+        const latestFolder = `${logsPath}\\${logFolders[0].name}`;
+        const files = await fs$1.promises.readdir(latestFolder, { withFileTypes: true });
+        const logFiles = files
+            .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
+            .sort((a, b) => b.name.localeCompare(a.name));
+        if (logFiles.length === 0) {
+            return null;
+        }
+        return `${latestFolder}\\${logFiles[0].name}`;
+    }
+    catch (error) {
+        return null;
+    }
+}
+/**
+ * Find server IP from EFT logs
+ */
+async function findIPFromLogs(eftPath) {
+    try {
+        if (!eftPath) {
+            return null;
+        }
+        const latestFile = await getLatestLogFile(eftPath);
+        if (!latestFile) {
+            return null;
+        }
+        const content = await fs$1.promises.readFile(latestFile, "utf-8");
+        const lines = content.split("\n");
+        for (let i = lines.length - 1; i >= 0; i--) {
+            const match = lines[i].match(/Ip:\s([\d\.]+),/);
+            if (match) {
+                const ip = match[1];
+                // Find corresponding datacenter
+                let datacenterName = "Unknown";
+                const datacenterData = globalThis.datacentersData;
+                if (datacenterData) {
+                    for (const region in datacenterData) {
+                        for (const dc of datacenterData[region]) {
+                            if (dc.unique_ips.includes(ip)) {
+                                datacenterName = dc.datacenter;
+                                break;
+                            }
+                        }
+                        if (datacenterName !== "Unknown")
+                            break;
+                    }
+                }
+                return { ip, datacenter: datacenterName };
+            }
+        }
+        return null;
+    }
+    catch (error) {
+        return null;
+    }
+}
+
+const execAsync = promisify(exec);
+const REGISTRY_PATHS = [
+    "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\EscapeFromTarkov",
+    "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 3932890"
+];
+/**
+ * Detect EFT installation path from Windows Registry
+ * Checks both regular and Steam installation paths
+ */
+async function detectEftPath() {
+    for (const regPath of REGISTRY_PATHS) {
+        try {
+            const { stdout } = await execAsync(`reg query "${regPath}" /v InstallLocation`, {
+                encoding: "utf8"
+            });
+            // Parse the registry output to get the install path
+            const match = stdout.match(/InstallLocation\s+REG_SZ\s+(.+)/i);
+            if (match && match[1]) {
+                const installPath = match[1].trim();
+                // Check if Logs folder exists
+                let logsPath = `${installPath}\\Logs`;
+                if (!fs$1.existsSync(logsPath)) {
+                    logsPath = `${installPath}\\build\\Logs`;
+                }
+                if (fs$1.existsSync(logsPath)) {
+                    // Return the install path (without \Logs)
+                    const basePath = logsPath.replace(/\\Logs$/, "").replace(/\\build\\Logs$/, "");
+                    return { success: true, path: basePath.includes("\\build") ? `${installPath}\\build` : installPath };
+                }
+            }
+        }
+        catch (error) {
+            // Registry key doesn't exist or error reading, continue to next path
+            continue;
+        }
+    }
+    return {
+        success: false,
+        error: "EFT installation not found. Please enter the path manually."
+    };
+}
+
 const apiURLs = {
     PVE: "https://tarkovbot.eu/api/pve/streamdeck/maps",
     PVP: "https://tarkovbot.eu/api/streamdeck/maps",
@@ -8259,24 +8779,6 @@ refreshData('PVE');
 refreshData('PVP');
 setInterval(() => refreshData('PVE'), 1200000);
 setInterval(() => refreshData('PVP'), 1200000);
-let pveMode;
-const settingsFilePath$5 = path$1.join(process.cwd(), "user_settings.json");
-// Load settings from user_settings.json
-async function loadSettings$5() {
-    try {
-        if (fs$1.existsSync(settingsFilePath$5)) {
-            const fileData = fs$1.readFileSync(settingsFilePath$5, "utf8");
-            const settings = JSON.parse(fileData);
-            pveMode = settings.current_map_info?.pve_map_mode_check || false;
-        }
-    }
-    catch (error) {
-        streamDeck.logger.info(`Error loading settings: ${error}`);
-    }
-}
-// Load settings on startup
-loadSettings$5();
-let eftInstallPath$2;
 let intervalUpdateInterval$6;
 let TarkovCurrentMapInfo = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo" })];
@@ -8297,16 +8799,16 @@ let TarkovCurrentMapInfo = (() => {
             ev.action.setTitle(`Get\nCurrent\nMap Info`);
         }
         async onKeyDown(ev) {
-            eftInstallPath$2 = ev.payload.settings.eft_install_path;
+            const eftInstallPath = ev.payload.settings.eft_install_path;
             streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
             if (intervalUpdateInterval$6) {
                 clearInterval(intervalUpdateInterval$6);
                 intervalUpdateInterval$6 = null;
             }
-            globalThis.location = await this.getLatestMap(eftInstallPath$2);
+            globalThis.location = await this.getLatestMap(eftInstallPath);
             if (ev.payload.settings.map_autoupdate_check) {
                 intervalUpdateInterval$6 = setInterval(async () => {
-                    globalThis.location = await this.getLatestMap(eftInstallPath$2);
+                    globalThis.location = await this.getLatestMap(eftInstallPath);
                     streamDeck.logger.info("Auto-update interval triggered; location:", globalThis.location);
                 }, 3000);
             }
@@ -8321,17 +8823,18 @@ let TarkovCurrentMapInfo = (() => {
                 streamDeck.logger.info("Map not found; returned value:", globalThis.location);
             }
         }
-        async getLatestMap(path) {
+        async getLatestMap(eftPath) {
             try {
-                await loadSettings$5();
-                const logsPath = `${path}\\Logs`;
+                const settings = loadSettings();
+                const pveMode = settings.pve_map_mode_check;
+                const logsPath = `${eftPath}\\Logs`;
                 streamDeck.logger.info("Using logs path:", logsPath);
                 const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
                 const logFolders = folders
                     .filter(f => f.isDirectory() && f.name.startsWith("log_"))
                     .map(f => ({
                     dirent: f,
-                    timestamp: this.extractTimestamp(f.name)
+                    timestamp: extractTimestamp(f.name)
                 }))
                     .sort((a, b) => b.timestamp - a.timestamp)
                     .map(f => f.dirent);
@@ -8401,21 +8904,6 @@ let TarkovCurrentMapInfo = (() => {
                 return null;
             }
         }
-        extractTimestamp(folderName) {
-            try {
-                const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
-                if (match) {
-                    const [_, year, month, day, hour, minute, second] = match;
-                    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
-                    return date.getTime();
-                }
-                return 0;
-            }
-            catch (error) {
-                streamDeck.logger.error("Error parsing timestamp:", error);
-                return 0;
-            }
-        }
         async getProfilePath(deviceType) {
             switch (deviceType) {
                 case 0:
@@ -8449,51 +8937,69 @@ let TarkovCurrentMapInfo = (() => {
                     map_autoupdate_check,
                 },
             };
-            const settingsFilePath = path$1.join(process.cwd(), 'user_settings.json');
-            fs$1.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
-                let existingData = {};
-                if (!readErr) {
-                    try {
-                        existingData = JSON.parse(fileData);
-                    }
-                    catch (parseErr) {
-                        streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
-                    }
+            saveSettings(updatedData);
+        }
+        async onSendToPlugin(ev) {
+            const payload = ev.payload;
+            streamDeck.logger.info("onSendToPlugin received:", JSON.stringify(payload));
+            if (payload.command === "autoDetectPath") {
+                streamDeck.logger.info("Starting auto-detect path...");
+                const result = await detectEftPath();
+                streamDeck.logger.info("Auto-detect result:", JSON.stringify(result));
+                if (result.success && result.path) {
+                    // Update the action settings with the detected path
+                    await ev.action.setSettings({
+                        ...await ev.action.getSettings(),
+                        eft_install_path: result.path
+                    });
+                    // Save to global settings
+                    saveSettings({
+                        global: { eft_install_path: result.path }
+                    });
+                    // Send success response back to property inspector
+                    await streamDeck.ui.current?.sendToPropertyInspector({
+                        event: "autoDetectResult",
+                        success: true,
+                        path: result.path
+                    });
                 }
-                const mergedData = { ...existingData, ...updatedData };
-                fs$1.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
-                    if (writeErr) {
-                        streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
-                    }
-                    else {
-                        streamDeck.logger.info("Settings successfully updated in user_settings.json");
-                    }
+                else {
+                    // Send error response
+                    await streamDeck.ui.current?.sendToPropertyInspector({
+                        event: "autoDetectResult",
+                        success: false,
+                        error: result.error
+                    });
+                }
+            }
+            else if (payload.command === "getGlobalSettings") {
+                const settings = loadSettings();
+                streamDeck.logger.info("Sending global settings:", settings.eftInstallPath);
+                await streamDeck.ui.current?.sendToPropertyInspector({
+                    event: "globalSettings",
+                    eft_install_path: settings.eftInstallPath
                 });
-            });
+            }
         }
     });
     return _classThis;
 })();
 
-const settingsFilePath$4 = path$1.join(process.cwd(), "user_settings.json");
-let map_autoupdate_check$4 = false;
-let pve_map_mode_check$4 = false;
-let intervalUpdateInterval$5 = null;
-function loadSettings$4() {
-    try {
-        if (fs$1.existsSync(settingsFilePath$4)) {
-            const fileData = fs$1.readFileSync(settingsFilePath$4, "utf8");
-            const settings = JSON.parse(fileData);
-            map_autoupdate_check$4 = settings.current_map_info?.map_autoupdate_check || false;
-            pve_map_mode_check$4 = settings.current_map_info?.pve_map_mode_check || false;
-        }
+/**
+ * Get map data based on location ID and PVE/PVP mode
+ */
+function getMapData(locationId, pveMode) {
+    if (!locationId) {
+        return null;
     }
-    catch (error) {
-        streamDeck.logger.error("Error loading settings:", error);
+    const dataSource = pveMode ? globalThis.locationsDataPVE : globalThis.locationsDataPVP;
+    if (!dataSource) {
+        return null;
     }
+    return dataSource.find((map) => map.nameId === locationId) || null;
 }
-// Load settings on startup
-loadSettings$4();
+
+let intervalUpdateInterval$5 = null;
 let TarkovCurrentMapInfo_Name = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.name" })];
     let _classDescriptor;
@@ -8516,7 +9022,8 @@ let TarkovCurrentMapInfo_Name = (() => {
                 clearInterval(intervalUpdateInterval$5);
                 intervalUpdateInterval$5 = null;
             }
-            if (map_autoupdate_check$4) {
+            const settings = loadSettings();
+            if (settings.map_autoupdate_check) {
                 streamDeck.logger.info("Starting auto-update interval for map name");
                 intervalUpdateInterval$5 = setInterval(() => this.updateMapName(ev), 5000);
             }
@@ -8529,17 +9036,15 @@ let TarkovCurrentMapInfo_Name = (() => {
             }
         }
         updateMapName(ev) {
-            loadSettings$4();
+            const settings = loadSettings();
             streamDeck.logger.info("updateMapName called");
             const locationId = globalThis.location;
             streamDeck.logger.info(`Current Location ID: ${locationId}`);
             ev.action.setTitle("");
             if (locationId) {
                 streamDeck.logger.info("Fetching map data...");
-                const mapData = pve_map_mode_check$4
-                    ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
-                    : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
-                streamDeck.logger.info(`Map Mode: ${pve_map_mode_check$4 ? 'PvE' : 'PvP'}`);
+                const mapData = getMapData(locationId, settings.pve_map_mode_check);
+                streamDeck.logger.info(`Map Mode: ${settings.pve_map_mode_check ? 'PvE' : 'PvP'}`);
                 streamDeck.logger.info(`Found Map Data: ${mapData ? JSON.stringify(mapData) : 'No map data'}`);
                 if (mapData) {
                     const formattedName = `\n${mapData.name.replace(/ /g, "\n")}`;
@@ -8560,26 +9065,7 @@ let TarkovCurrentMapInfo_Name = (() => {
     return _classThis;
 })();
 
-const settingsFilePath$3 = path$1.join(process.cwd(), "user_settings.json");
-let map_autoupdate_check$3 = false;
-let pve_map_mode_check$3 = false;
 let intervalUpdateInterval$4 = null;
-// Load settings from user_settings.json
-function loadSettings$3() {
-    try {
-        if (fs$1.existsSync(settingsFilePath$3)) {
-            const fileData = fs$1.readFileSync(settingsFilePath$3, "utf8");
-            const settings = JSON.parse(fileData);
-            map_autoupdate_check$3 = settings.current_map_info?.map_autoupdate_check || false;
-            pve_map_mode_check$3 = settings.current_map_info?.pve_map_mode_check || false;
-        }
-    }
-    catch (error) {
-        streamDeck.logger.info(`Error loading settings: ${error}`);
-    }
-}
-// Load settings on startup
-loadSettings$3();
 let TarkovCurrentMapInfo_Duration = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.raidduration" })];
     let _classDescriptor;
@@ -8601,7 +9087,8 @@ let TarkovCurrentMapInfo_Duration = (() => {
                 clearInterval(intervalUpdateInterval$4);
                 intervalUpdateInterval$4 = null;
             }
-            if (map_autoupdate_check$3) {
+            const settings = loadSettings();
+            if (settings.map_autoupdate_check) {
                 intervalUpdateInterval$4 = setInterval(() => this.updateRaidDuration(ev), 5000);
             }
         }
@@ -8612,14 +9099,11 @@ let TarkovCurrentMapInfo_Duration = (() => {
             }
         }
         updateRaidDuration(ev) {
-            loadSettings$3();
+            const settings = loadSettings();
             const locationId = globalThis.location;
             ev.action.setTitle("");
             if (locationId) {
-                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
-                const mapData = pve_map_mode_check$3
-                    ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
-                    : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+                const mapData = getMapData(locationId, settings.pve_map_mode_check);
                 if (mapData) {
                     ev.action.setTitle(`\n${mapData.raidDuration} min`);
                 }
@@ -8635,26 +9119,7 @@ let TarkovCurrentMapInfo_Duration = (() => {
     return _classThis;
 })();
 
-const settingsFilePath$2 = path$1.join(process.cwd(), "user_settings.json");
-let map_autoupdate_check$2 = false;
-let pve_map_mode_check$2 = false;
 let intervalUpdateInterval$3 = null;
-// Load settings from user_settings.json
-function loadSettings$2() {
-    try {
-        if (fs$1.existsSync(settingsFilePath$2)) {
-            const fileData = fs$1.readFileSync(settingsFilePath$2, "utf8");
-            const settings = JSON.parse(fileData);
-            map_autoupdate_check$2 = settings.current_map_info?.map_autoupdate_check || false;
-            pve_map_mode_check$2 = settings.current_map_info?.pve_map_mode_check || false;
-        }
-    }
-    catch (error) {
-        streamDeck.logger.info(`Error loading settings: ${error}`);
-    }
-}
-// Load settings on startup
-loadSettings$2();
 let TarkovCurrentMapInfo_Players = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.playercount" })];
     let _classDescriptor;
@@ -8676,7 +9141,8 @@ let TarkovCurrentMapInfo_Players = (() => {
                 clearInterval(intervalUpdateInterval$3);
                 intervalUpdateInterval$3 = null;
             }
-            if (map_autoupdate_check$2) {
+            const settings = loadSettings();
+            if (settings.map_autoupdate_check) {
                 intervalUpdateInterval$3 = setInterval(() => this.updatePlayerCount(ev), 5000);
             }
         }
@@ -8687,14 +9153,11 @@ let TarkovCurrentMapInfo_Players = (() => {
             }
         }
         updatePlayerCount(ev) {
-            loadSettings$2();
+            const settings = loadSettings();
             const locationId = globalThis.location;
             ev.action.setTitle("");
             if (locationId) {
-                // Use PvE data if pve_map_mode_check is true; otherwise, use PvP data
-                const mapData = pve_map_mode_check$2
-                    ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
-                    : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+                const mapData = getMapData(locationId, settings.pve_map_mode_check);
                 if (mapData) {
                     ev.action.setTitle(`\n${mapData.players}`);
                 }
@@ -8735,29 +9198,7 @@ let TarkovCurrentMapInfo_BackToProfile = (() => {
     return _classThis;
 })();
 
-const settingsFilePath$1 = path$1.join(process.cwd(), "user_settings.json");
-let map_autoupdate_check$1 = false;
-let pve_map_mode_check$1 = false;
-let eftInstallPath$1;
 let intervalUpdateInterval$2 = null;
-// Load settings from user_settings.json
-function loadSettings$1() {
-    try {
-        if (fs$1.existsSync(settingsFilePath$1)) {
-            const fileData = fs$1.readFileSync(settingsFilePath$1, "utf8");
-            const settings = JSON.parse(fileData);
-            map_autoupdate_check$1 = settings.current_map_info?.map_autoupdate_check || false;
-            pve_map_mode_check$1 = settings.current_map_info?.pve_map_mode_check || false;
-            eftInstallPath$1 = settings.global?.eft_install_path || "";
-        }
-        else {
-        }
-    }
-    catch (error) {
-    }
-}
-// Load settings on startup
-loadSettings$1();
 let TarkovCurrentMapInfo_CurrentServer = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.currentserver" })];
     let _classDescriptor;
@@ -8782,7 +9223,8 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                 clearInterval(intervalUpdateInterval$2);
                 intervalUpdateInterval$2 = null;
             }
-            if (map_autoupdate_check$1) {
+            const settings = loadSettings();
+            if (settings.map_autoupdate_check) {
                 intervalUpdateInterval$2 = setInterval(async () => {
                     await this.updateServerInfo();
                     this.updateServerDisplay(ev);
@@ -8801,11 +9243,12 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
             }
         }
         async updateServerInfo() {
-            loadSettings$1();
+            const settings = loadSettings();
             try {
-                this.serverInfo = await this.getLatestIP(eftInstallPath$1);
+                this.serverInfo = await findIPFromLogs(settings.eftInstallPath);
             }
             catch (error) {
+                // Silent fail
             }
         }
         updateServerDisplay(ev) {
@@ -8817,103 +9260,30 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                 ev.action.setTitle("\n\nNo\nServer\nFound");
             }
         }
-        async getLatestIP(path) {
-            try {
-                if (!path) {
-                    return null;
-                }
-                const logsPath = `${path}\\Logs`;
-                const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
-                const logFolders = folders
-                    .filter(f => f.isDirectory() && f.name.startsWith("log_"))
-                    .map(f => ({
-                    dirent: f,
-                    timestamp: this.extractTimestamp(f.name)
-                }))
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .map(f => f.dirent);
-                if (logFolders.length === 0) {
-                    return null;
-                }
-                const latestFolder = `${logsPath}\\${logFolders[0].name}`;
-                const files = await fs$1.promises.readdir(latestFolder, { withFileTypes: true });
-                const logFiles = files
-                    .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
-                    .sort((a, b) => b.name.localeCompare(a.name));
-                if (logFiles.length === 0) {
-                    return null;
-                }
-                const latestFile = `${latestFolder}\\${logFiles[0].name}`;
-                const content = await fs$1.promises.readFile(latestFile, "utf-8");
-                const lines = content.split("\n");
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    const match = lines[i].match(/Ip:\s([\d\.]+),/);
-                    if (match) {
-                        const ip = match[1];
-                        // Find corresponding datacenter
-                        let datacenterName = "Unknown";
-                        const datacenterData = globalThis.datacentersData;
-                        if (datacenterData) {
-                            for (const region in datacenterData) {
-                                for (const dc of datacenterData[region]) {
-                                    if (dc.unique_ips.includes(ip)) {
-                                        datacenterName = dc.datacenter;
-                                        break;
-                                    }
-                                }
-                                if (datacenterName !== "Unknown")
-                                    break;
-                            }
-                        }
-                        return { ip, datacenter: datacenterName };
-                    }
-                }
-                return null;
-            }
-            catch (error) {
-                return null;
-            }
-        }
-        extractTimestamp(folderName) {
-            try {
-                const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
-                if (match) {
-                    const [_, year, month, day, hour, minute, second] = match;
-                    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
-                    return date.getTime();
-                }
-                return 0;
-            }
-            catch (error) {
-                return 0;
-            }
-        }
         onDidReceiveSettings(ev) {
             const { map_autoupdate_check: newAutoUpdate, pve_map_mode_check: newPveMode } = ev.payload.settings;
-            map_autoupdate_check$1 = newAutoUpdate || false;
-            pve_map_mode_check$1 = newPveMode || false;
             // Update the settings file
             try {
                 let existingData = {};
-                if (fs$1.existsSync(settingsFilePath$1)) {
-                    const fileData = fs$1.readFileSync(settingsFilePath$1, "utf8");
+                if (fs$1.existsSync(SETTINGS_FILE_PATH)) {
+                    const fileData = fs$1.readFileSync(SETTINGS_FILE_PATH, "utf8");
                     existingData = JSON.parse(fileData);
                 }
                 const updatedData = {
                     ...existingData,
                     current_map_info: {
                         ...existingData["current_map_info"],
-                        map_autoupdate_check: map_autoupdate_check$1,
-                        pve_map_mode_check: pve_map_mode_check$1
+                        map_autoupdate_check: newAutoUpdate || false,
+                        pve_map_mode_check: newPveMode || false
                     }
                 };
-                fs$1.writeFileSync(settingsFilePath$1, JSON.stringify(updatedData, null, 4));
+                fs$1.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(updatedData, null, 4));
                 // Restart interval if needed
                 if (intervalUpdateInterval$2) {
                     clearInterval(intervalUpdateInterval$2);
                     intervalUpdateInterval$2 = null;
                 }
-                if (map_autoupdate_check$1) {
+                if (newAutoUpdate) {
                     intervalUpdateInterval$2 = setInterval(async () => {
                         await this.updateServerInfo();
                         this.updateServerDisplay(ev.action);
@@ -8921,6 +9291,7 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
                 }
             }
             catch (error) {
+                // Silent fail
             }
         }
     });
@@ -9003,16 +9374,16 @@ let TarkovCurrentServerInfo = (() => {
                 }
             }
         }
-        async getLatestIP(path) {
+        async getLatestIP(eftPath) {
             try {
-                const logsPath = `${path}\\Logs`;
+                const logsPath = `${eftPath}\\Logs`;
                 streamDeck.logger.info("Using logs path:", logsPath);
                 const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
                 const logFolders = folders
                     .filter(f => f.isDirectory() && f.name.startsWith("log_"))
                     .map(f => ({
                     dirent: f,
-                    timestamp: this.extractTimestamp(f.name)
+                    timestamp: extractTimestamp(f.name)
                 }))
                     .sort((a, b) => b.timestamp - a.timestamp)
                     .map(f => f.dirent);
@@ -9060,21 +9431,6 @@ let TarkovCurrentServerInfo = (() => {
                 return null;
             }
         }
-        extractTimestamp(folderName) {
-            try {
-                const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
-                if (match) {
-                    const [_, year, month, day, hour, minute, second] = match;
-                    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
-                    return date.getTime();
-                }
-                return 0;
-            }
-            catch (error) {
-                streamDeck.logger.error("Error parsing timestamp:", error);
-                return 0;
-            }
-        }
         onDidReceiveSettings(ev) {
             const { eft_install_path, raid_autoupdate_check } = ev.payload.settings;
             globalThis.eftInstallPath = eft_install_path;
@@ -9088,27 +9444,7 @@ let TarkovCurrentServerInfo = (() => {
                     raid_autoupdate_check,
                 },
             };
-            const settingsFilePath = path$1.join(process.cwd(), 'user_settings.json');
-            fs$1.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
-                let existingData = {};
-                if (!readErr) {
-                    try {
-                        existingData = JSON.parse(fileData);
-                    }
-                    catch (parseErr) {
-                        streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
-                    }
-                }
-                const mergedData = { ...existingData, ...updatedData };
-                fs$1.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
-                    if (writeErr) {
-                        streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
-                    }
-                    else {
-                        streamDeck.logger.info("Settings successfully updated in user_settings.json");
-                    }
-                });
-            });
+            saveSettings(updatedData);
         }
         onWillDisappear(ev) {
             if (intervalUpdateInterval$1) {
@@ -9116,35 +9452,58 @@ let TarkovCurrentServerInfo = (() => {
                 intervalUpdateInterval$1 = null;
             }
         }
+        async onSendToPlugin(ev) {
+            const payload = ev.payload;
+            streamDeck.logger.info("onSendToPlugin received:", JSON.stringify(payload));
+            if (payload.command === "autoDetectPath") {
+                streamDeck.logger.info("Starting auto-detect path...");
+                const result = await detectEftPath();
+                streamDeck.logger.info("Auto-detect result:", JSON.stringify(result));
+                if (result.success && result.path) {
+                    // Update the action settings with the detected path
+                    await ev.action.setSettings({
+                        ...await ev.action.getSettings(),
+                        eft_install_path: result.path
+                    });
+                    // Save to global settings
+                    saveSettings({
+                        global: { eft_install_path: result.path }
+                    });
+                    // Send success response back to property inspector
+                    await streamDeck.ui.current?.sendToPropertyInspector({
+                        event: "autoDetectResult",
+                        success: true,
+                        path: result.path
+                    });
+                }
+                else {
+                    // Send error response
+                    await streamDeck.ui.current?.sendToPropertyInspector({
+                        event: "autoDetectResult",
+                        success: false,
+                        error: result.error
+                    });
+                }
+            }
+            else if (payload.command === "getGlobalSettings") {
+                const settings = loadSettings();
+                streamDeck.logger.info("Sending global settings:", settings.eftInstallPath);
+                await streamDeck.ui.current?.sendToPropertyInspector({
+                    event: "globalSettings",
+                    eft_install_path: settings.eftInstallPath
+                });
+            }
+        }
     });
     return _classThis;
 })();
 
-const settingsFilePath = path$1.join(process.cwd(), "user_settings.json");
-let map_autoupdate_check = false;
-let pve_map_mode_check = false;
 let intervalUpdateInterval = null;
 let lastPveMode = null;
 // Global variables to track map changes for all boss instances
 let currentGlobalLocationId = null;
 let lastImageFetchMap = null;
 let bossImageCache = {};
-// Load settings from user_settings.json
-function loadSettings() {
-    try {
-        if (fs$1.existsSync(settingsFilePath)) {
-            const fileData = fs$1.readFileSync(settingsFilePath, "utf8");
-            const settings = JSON.parse(fileData);
-            map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
-            pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
-        }
-    }
-    catch (error) {
-        streamDeck.logger.error("Error loading settings:", error);
-    }
-}
-// Load settings on startup
-loadSettings();
 let TarkovCurrentMapInfo_Boss = (() => {
     let _classDecorators = [action({ UUID: "eu.tarkovbot.tools.mapinfo.boss" })];
     let _classDescriptor;
@@ -9171,8 +9530,9 @@ let TarkovCurrentMapInfo_Boss = (() => {
             this.activeInstance = true;
             // Clear display on initial appearance
             this.clearBossDisplay(ev);
+            const settings = loadSettings();
             // Set up map change tracking interval ONLY if auto-update is enabled
-            if (intervalUpdateInterval === null && map_autoupdate_check) {
+            if (intervalUpdateInterval === null && settings.map_autoupdate_check) {
                 currentGlobalLocationId = globalThis.location;
                 intervalUpdateInterval = setInterval(() => {
                     const newLocationId = globalThis.location;
@@ -9186,7 +9546,7 @@ let TarkovCurrentMapInfo_Boss = (() => {
             // Initial update - Always run this
             await this.updateBossInfo(ev);
             // Set up periodic update ONLY if auto-update is enabled
-            if (map_autoupdate_check) {
+            if (settings.map_autoupdate_check) {
                 this.updateInterval = setInterval(async () => {
                     if (!this.activeInstance) {
                         this.clearUpdateInterval();
@@ -9213,12 +9573,12 @@ let TarkovCurrentMapInfo_Boss = (() => {
         }
         async updateBossInfo(ev) {
             // Reload settings on each update to detect changes
-            loadSettings();
+            const settings = loadSettings();
             // Check if PVE mode has changed
-            if (lastPveMode !== pve_map_mode_check) {
+            if (lastPveMode !== settings.pve_map_mode_check) {
                 lastImageFetchMap = null;
                 bossImageCache = {};
-                lastPveMode = pve_map_mode_check;
+                lastPveMode = settings.pve_map_mode_check;
             }
             const locationId = globalThis.location;
             // Do nothing if location is not available
@@ -9227,9 +9587,7 @@ let TarkovCurrentMapInfo_Boss = (() => {
                 return;
             }
             // Get the correct map data source based on settings
-            const mapData = pve_map_mode_check
-                ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
-                : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+            const mapData = getMapData(locationId, settings.pve_map_mode_check);
             // Handle no map data case
             if (!mapData) {
                 ev.action.setTitle("\nNo Map\nData");

@@ -6,9 +6,13 @@ import {
     KeyDownEvent,
     DidReceiveSettingsEvent,
     WillDisappearEvent,
+    SendToPluginEvent,
 } from "@elgato/streamdeck";
 import fs from "fs";
 import path from "path";
+import { saveSettings, loadSettings } from "../utils/settings";
+import { extractTimestamp } from "../utils/log-parser";
+import { detectEftPath } from "../utils/eft-path";
 
 let eftInstallPath: any;
 let currentServerInfo: any;
@@ -85,9 +89,9 @@ export class TarkovCurrentServerInfo extends SingletonAction {
         }
     }
 
-    private async getLatestIP(path: any): Promise<{ ip: string, datacenter: string } | null> {
+    private async getLatestIP(eftPath: any): Promise<{ ip: string, datacenter: string } | null> {
         try {
-            const logsPath = `${path}\\Logs`;
+            const logsPath = `${eftPath}\\Logs`;
             streamDeck.logger.info("Using logs path:", logsPath);
 
             const folders = await fs.promises.readdir(logsPath, { withFileTypes: true });
@@ -95,7 +99,7 @@ export class TarkovCurrentServerInfo extends SingletonAction {
                 .filter(f => f.isDirectory() && f.name.startsWith("log_"))
                 .map(f => ({
                     dirent: f,
-                    timestamp: this.extractTimestamp(f.name)
+                    timestamp: extractTimestamp(f.name)
                 }))
                 .sort((a, b) => b.timestamp - a.timestamp)
                 .map(f => f.dirent);
@@ -153,29 +157,6 @@ export class TarkovCurrentServerInfo extends SingletonAction {
         }
     }
 
-
-    private extractTimestamp(folderName: string): number {
-        try {
-            const match = folderName.match(/^log_(\d{4})\.(\d{2})\.(\d{2})_(\d{2})-(\d{2})-(\d{2})/);
-            if (match) {
-                const [_, year, month, day, hour, minute, second] = match;
-                const date = new Date(
-                    parseInt(year),
-                    parseInt(month) - 1,
-                    parseInt(day),
-                    parseInt(hour),
-                    parseInt(minute),
-                    parseInt(second)
-                );
-                return date.getTime();
-            }
-            return 0;
-        } catch (error) {
-            streamDeck.logger.error("Error parsing timestamp:", error);
-            return 0;
-        }
-    }
-
     override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void | Promise<void> {
         const { eft_install_path, raid_autoupdate_check } = ev.payload.settings;
         globalThis.eftInstallPath = eft_install_path;
@@ -192,35 +173,58 @@ export class TarkovCurrentServerInfo extends SingletonAction {
             },
         };
 
-        const settingsFilePath = path.join(process.cwd(), 'user_settings.json');
-
-        fs.readFile(settingsFilePath, 'utf8', (readErr, fileData) => {
-            let existingData = {};
-
-            if (!readErr) {
-                try {
-                    existingData = JSON.parse(fileData);
-                } catch (parseErr) {
-                    streamDeck.logger.error("Error parsing user_settings.json:", parseErr);
-                }
-            }
-
-            const mergedData = { ...existingData, ...updatedData };
-
-            fs.writeFile(settingsFilePath, JSON.stringify(mergedData, null, 4), (writeErr) => {
-                if (writeErr) {
-                    streamDeck.logger.error("Error writing to user_settings.json:", writeErr);
-                } else {
-                    streamDeck.logger.info("Settings successfully updated in user_settings.json");
-                }
-            });
-        });
+        saveSettings(updatedData);
     }
 
     override onWillDisappear(ev: WillDisappearEvent): void | Promise<void> {
         if (intervalUpdateInterval) {
             clearInterval(intervalUpdateInterval);
             intervalUpdateInterval = null;
+        }
+    }
+
+    override async onSendToPlugin(ev: SendToPluginEvent<any, any>): Promise<void> {
+        const payload = ev.payload as any;
+        streamDeck.logger.info("onSendToPlugin received:", JSON.stringify(payload));
+
+        if (payload.command === "autoDetectPath") {
+            streamDeck.logger.info("Starting auto-detect path...");
+            const result = await detectEftPath();
+            streamDeck.logger.info("Auto-detect result:", JSON.stringify(result));
+
+            if (result.success && result.path) {
+                // Update the action settings with the detected path
+                await ev.action.setSettings({
+                    ...await ev.action.getSettings(),
+                    eft_install_path: result.path
+                });
+
+                // Save to global settings
+                saveSettings({
+                    global: { eft_install_path: result.path }
+                });
+
+                // Send success response back to property inspector
+                await streamDeck.ui.current?.sendToPropertyInspector({
+                    event: "autoDetectResult",
+                    success: true,
+                    path: result.path
+                });
+            } else {
+                // Send error response
+                await streamDeck.ui.current?.sendToPropertyInspector({
+                    event: "autoDetectResult",
+                    success: false,
+                    error: result.error
+                });
+            }
+        } else if (payload.command === "getGlobalSettings") {
+            const settings = loadSettings();
+            streamDeck.logger.info("Sending global settings:", settings.eftInstallPath);
+            await streamDeck.ui.current?.sendToPropertyInspector({
+                event: "globalSettings",
+                eft_install_path: settings.eftInstallPath
+            });
         }
     }
 }

@@ -3,16 +3,11 @@ import {
     action,
     SingletonAction,
     WillAppearEvent,
-    WillDisappearEvent,
-    DidReceiveSettingsEvent,
+    WillDisappearEvent
 } from "@elgato/streamdeck";
-import fs from "fs";
-import path from "path";
+import { loadSettings } from "../utils/settings";
+import { getMapData } from "../utils/map-data";
 
-const settingsFilePath = path.join(process.cwd(), "user_settings.json");
-
-let map_autoupdate_check = false;
-let pve_map_mode_check = false;
 let intervalUpdateInterval: NodeJS.Timeout | null = null;
 let lastPveMode: boolean | null = null;
 
@@ -20,24 +15,6 @@ let lastPveMode: boolean | null = null;
 let currentGlobalLocationId: string | null = null;
 let lastImageFetchMap: string | null = null;
 let bossImageCache: Record<string, string> = {};
-
-// Load settings from user_settings.json
-function loadSettings(): void {
-    try {
-        if (fs.existsSync(settingsFilePath)) {
-            const fileData = fs.readFileSync(settingsFilePath, "utf8");
-            const settings = JSON.parse(fileData);
-
-            map_autoupdate_check = settings.current_map_info?.map_autoupdate_check || false;
-            pve_map_mode_check = settings.current_map_info?.pve_map_mode_check || false;
-        }
-    } catch (error) {
-        streamDeck.logger.error("Error loading settings:", error);
-    }
-}
-
-// Load settings on startup
-loadSettings();
 
 @action({ UUID: "eu.tarkovbot.tools.mapinfo.boss" })
 export class TarkovCurrentMapInfo_Boss extends SingletonAction {
@@ -56,8 +33,10 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         // Clear display on initial appearance
         this.clearBossDisplay(ev);
 
+        const settings = loadSettings();
+
         // Set up map change tracking interval ONLY if auto-update is enabled
-        if (intervalUpdateInterval === null && map_autoupdate_check) {
+        if (intervalUpdateInterval === null && settings.map_autoupdate_check) {
             currentGlobalLocationId = globalThis.location;
 
             intervalUpdateInterval = setInterval(() => {
@@ -75,7 +54,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         await this.updateBossInfo(ev);
 
         // Set up periodic update ONLY if auto-update is enabled
-        if (map_autoupdate_check) {
+        if (settings.map_autoupdate_check) {
             this.updateInterval = setInterval(async () => {
                 if (!this.activeInstance) {
                     this.clearUpdateInterval();
@@ -106,13 +85,13 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
 
     private async updateBossInfo(ev: WillAppearEvent): Promise<void> {
         // Reload settings on each update to detect changes
-        loadSettings();
+        const settings = loadSettings();
 
         // Check if PVE mode has changed
-        if (lastPveMode !== pve_map_mode_check) {
+        if (lastPveMode !== settings.pve_map_mode_check) {
             lastImageFetchMap = null;
             bossImageCache = {};
-            lastPveMode = pve_map_mode_check;
+            lastPveMode = settings.pve_map_mode_check;
         }
 
         const locationId = globalThis.location;
@@ -124,9 +103,7 @@ export class TarkovCurrentMapInfo_Boss extends SingletonAction {
         }
 
         // Get the correct map data source based on settings
-        const mapData = pve_map_mode_check
-            ? globalThis.locationsDataPVE?.find(map => map.nameId === locationId)
-            : globalThis.locationsDataPVP?.find(map => map.nameId === locationId);
+        const mapData = getMapData(locationId, settings.pve_map_mode_check);
 
         // Handle no map data case
         if (!mapData) {
