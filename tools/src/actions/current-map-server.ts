@@ -9,13 +9,13 @@ import {
 } from "@elgato/streamdeck";
 import fs from "fs";
 import { loadSettings, saveSettings, SETTINGS_FILE_PATH } from "../utils/settings";
-import { extractTimestamp, findIPFromLogs } from "../utils/log-parser";
+import { findServerFromLogs } from "../utils/log-parser";
 
 let intervalUpdateInterval: NodeJS.Timeout | null = null;
 
 @action({ UUID: "eu.tarkovbot.tools.mapinfo.currentserver" })
 export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
-	private serverInfo: { ip: string, datacenter: string } | null = null;
+	private serverInfo: { sid: string, datacenter: string } | null = null;
 
 	override async onWillAppear(ev: WillAppearEvent): Promise<void> {
 		// Initial update
@@ -52,7 +52,7 @@ export class TarkovCurrentMapInfo_CurrentServer extends SingletonAction {
 	private async updateServerInfo(): Promise<void> {
 		const settings = loadSettings();
 		try {
-			this.serverInfo = await findIPFromLogs(settings.eftInstallPath);
+			this.serverInfo = await findServerFromLogs(settings.eftInstallPath);
 		} catch (error) {
 			// Silent fail
 		}

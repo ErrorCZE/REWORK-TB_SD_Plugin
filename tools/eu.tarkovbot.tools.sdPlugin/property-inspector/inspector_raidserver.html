@@ -2,152 +2,93 @@
 <html>
 
 <head lang="en">
-    <title>RAID SERVER</title>
-    <meta charset="utf-8" />
-    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
-    <style>
-        .path-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .path-row sdpi-textfield {
-            flex: 1;
-        }
-        .auto-detect-btn {
-            background: #0078d4;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 12px;
-            cursor: pointer;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-        .auto-detect-btn:hover {
-            background: #106ebe;
-        }
-        .auto-detect-btn:disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
-        .status-message {
-            padding: 8px;
-            margin-top: 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            display: none;
-        }
-        .status-message.error {
-            background: rgba(255, 0, 0, 0.2);
-            color: #ff6b6b;
-            display: block;
-        }
-        .status-message.success {
-            background: rgba(0, 255, 0, 0.2);
-            color: #69db7c;
-            display: block;
-        }
-    </style>
+  <title>RAID SERVER</title>
+  <meta charset="utf-8" />
+  <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
 </head>
 
 <body>
-    <sdpi-item label="EFT Path">
-        <div class="path-row">
-            <sdpi-textfield id="eft_path_input" setting="eft_install_path" placeholder="Enter the path to your EFT folder"></sdpi-textfield>
-            <button class="auto-detect-btn" id="autoDetectBtn" onclick="autoDetectPath()">Auto Detect</button>
-        </div>
-    </sdpi-item>
-    
-    <div id="statusMessage" class="status-message"></div>
-
-    <sdpi-item label="Auto Update">
-        <sdpi-checkbox setting="raid_autoupdate_check"></sdpi-checkbox>
-    </sdpi-item>
-
-
-    <div style="
-    border: solid gray 1px;
-    border-radius: 8px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 4px;
-    color: white;
-    font-size: 13px;
-    background: rgba(0,0,0,.5);
-    font-family: system-ui;
-">
-        <div>
-            <b style="color: lime;">Auto Detect</b> - Automatically finds your EFT installation from the Windows Registry.
-        </div>
-        <div>
-            <b style="color: lime;">Auto Update</b> - Automatically updates the current server. You won't need to press the button in every raid.
-        </div>
+  <sdpi-item label="EFT Path">
+    <div style="display: flex; flex-direction: column; width: 100%; gap: 8px;">
+      <sdpi-textfield id="eft_path_input" setting="eft_install_path" placeholder="Enter path to EFT folder"></sdpi-textfield>
+      <button style="background: #0078d4; color: white; border: none; border-radius: 4px; padding: 7px; cursor: pointer; font-size: 12px; font-weight: bold;" id="autoDetectBtn" onclick="autoDetectPath()">
+        Auto Detect
+      </button>
     </div>
-    
-    <script>
-        // Use SDPIComponents.streamDeckClient with v4 API
-        const streamDeckClient = SDPIComponents.streamDeckClient;
-        
-        // Listen for messages from plugin using v4 subscribe pattern
-        streamDeckClient.sendToPropertyInspector.subscribe(function(ev) {
-            console.log('PI: Received from plugin:', ev);
-            handlePluginMessage(ev.payload);
-        });
-        
-        // Request global settings on load
-        streamDeckClient.send('sendToPlugin', { command: 'getGlobalSettings' });
-        
-        function handlePluginMessage(data) {
-            const statusEl = document.getElementById('statusMessage');
-            const btn = document.getElementById('autoDetectBtn');
-            
-            console.log('PI: handlePluginMessage:', data);
-            
-            if (data.event === 'autoDetectResult') {
-                btn.disabled = false;
-                btn.textContent = 'Auto Detect';
-                
-                if (data.success) {
-                    statusEl.className = 'status-message success';
-                    statusEl.textContent = 'Found: ' + data.path;
-                } else {
-                    statusEl.className = 'status-message error';
-                    statusEl.textContent = data.error || 'EFT installation not found';
-                }
-                
-                // Hide message after 5 seconds
-                setTimeout(function() {
-                    statusEl.className = 'status-message';
-                }, 5000);
-            } else if (data.event === 'globalSettings') {
-                // Pre-fill with global settings if no action-specific setting
-                if (data.eft_install_path) {
-                    const pathInput = document.querySelector('sdpi-textfield[setting="eft_install_path"]');
-                    if (pathInput && !pathInput.value) {
-                        pathInput.value = data.eft_install_path;
-                    }
-                }
-            }
-        }
-        
-        function autoDetectPath() {
-            const btn = document.getElementById('autoDetectBtn');
-            const statusEl = document.getElementById('statusMessage');
-            
-            btn.disabled = true;
-            btn.textContent = 'Detecting...';
-            statusEl.className = 'status-message';
-            
-            console.log('PI: Sending autoDetectPath command');
-            streamDeckClient.send('sendToPlugin', { command: 'autoDetectPath' });
-        }
-    </script>
+  </sdpi-item>
 
+  <div id="statusMessage" style="display: none; margin: 10px; padding: 8px; border-radius: 4px; font-size: 12px; font-family: system-ui;"></div>
+
+  <sdpi-item label="Auto Update">
+    <sdpi-checkbox setting="raid_autoupdate_check"></sdpi-checkbox>
+  </sdpi-item>
+
+  <div style="padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; border-left: 3px solid lime; font-family: system-ui;">
+
+    <div style="margin-bottom: 10px;">
+      <b style="color: white; font-size: 12px;">Auto Detect:</b>
+      <div style="color: #ccc; font-size: 11px; line-height: 1.4;">Automatically finds your EFT installation from the Windows Registry.</div>
+    </div>
+
+    <div>
+      <b style="color: white; font-size: 12px;">Auto Update:</b>
+      <div style="color: #ccc; font-size: 11px; line-height: 1.4;">Automatically updates the current server. You won't need to press the button in every raid.</div>
+    </div>
+  </div>
+
+  <hr style="border: 0; border-top: 1px solid #333; margin: 20px 10px 10px 10px;">
+
+  <div style="padding: 0 10px 10px 10px; font-family: system-ui; display: flex; flex-direction: column; align-items: center;">
+    <p style="margin: 0 0 8px 0; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #888; letter-spacing: 1px;">Support the Project</p>
+    <button style="width: 100%; background: #FF424D; color: white; border: none; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='#e33b44'" onmouseout="this.style.background='#FF424D'" onclick="SDPIComponents.streamDeckClient.send('sendToPlugin', 'openPatreon');">
+      Visit our Patreon
+    </button>
+  </div>
+
+  <script>
+    const streamDeckClient = SDPIComponents.streamDeckClient;
+    streamDeckClient.sendToPropertyInspector.subscribe((ev) => handlePluginMessage(ev.payload));
+    streamDeckClient.send('sendToPlugin', {
+      command: 'getGlobalSettings'
+    });
+
+    function handlePluginMessage(data) {
+      const statusEl = document.getElementById('statusMessage');
+      const btn = document.getElementById('autoDetectBtn');
+
+      if (data.event === 'autoDetectResult') {
+        btn.disabled = false;
+        btn.textContent = 'Auto Detect';
+        statusEl.style.display = 'block';
+        if (data.success) {
+          statusEl.style.background = 'rgba(0, 255, 0, 0.1)';
+          statusEl.style.color = '#69db7c';
+          statusEl.textContent = 'Found: ' + data.path;
+        } else {
+          statusEl.style.background = 'rgba(255, 0, 0, 0.1)';
+          statusEl.style.color = '#ff6b6b';
+          statusEl.textContent = data.error || 'EFT not found';
+        }
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 5000);
+      } else if (data.event === 'globalSettings') {
+        if (data.eft_install_path) {
+          const pathInput = document.querySelector('sdpi-textfield[setting="eft_install_path"]');
+          if (pathInput && !pathInput.value) pathInput.value = data.eft_install_path;
+        }
+      }
+    }
+
+    function autoDetectPath() {
+      const btn = document.getElementById('autoDetectBtn');
+      btn.disabled = true;
+      btn.textContent = 'Detecting...';
+      streamDeckClient.send('sendToPlugin', {
+        command: 'autoDetectPath'
+      });
+    }
+  </script>
 </body>
 
 </html>

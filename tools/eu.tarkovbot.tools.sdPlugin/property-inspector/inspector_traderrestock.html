@@ -2,51 +2,46 @@
 <html>
 
 <head lang="en">
-    <title>TRADER RESTOCKS</title>
-    <meta charset="utf-8" />
-    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+  <title>TRADER RESTOCKS</title>
+  <meta charset="utf-8" />
+  <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
 </head>
 
 <body>
-    <sdpi-item label="Trader">
-        <sdpi-select setting="selectedTrader" placeholder="Select Trader">
-            <option value="Prapor">Prapor</option>
-            <option value="Therapist">Therapist</option>
-            <option value="Fence">Fence</option>
-            <option value="Skier">Skier</option>
-            <option value="Peacekeeper">Peacekeeper</option>
-            <option value="Mechanic">Mechanic</option>
-            <option value="Ragman">Ragman</option>
-            <option value="Jaeger">Jaeger</option>
-            <option value="Ref">Ref</option>
-        </sdpi-select>
-    </sdpi-item>
+  <sdpi-item label="Trader">
+    <sdpi-select setting="selectedTrader" placeholder="Select Trader">
+      <option value="Prapor">Prapor</option>
+      <option value="Therapist">Therapist</option>
+      <option value="Fence">Fence</option>
+      <option value="Skier">Skier</option>
+      <option value="Peacekeeper">Peacekeeper</option>
+      <option value="Mechanic">Mechanic</option>
+      <option value="Ragman">Ragman</option>
+      <option value="Jaeger">Jaeger</option>
+      <option value="Ref">Ref</option>
+    </sdpi-select>
+  </sdpi-item>
 
-    <sdpi-item label="PVE Mode">
-        <sdpi-checkbox setting="pve_traders_mode_check"></sdpi-checkbox>
-    </sdpi-item>
+  <sdpi-item label="PVE Mode">
+    <sdpi-checkbox setting="pve_traders_mode_check"></sdpi-checkbox>
+  </sdpi-item>
 
-    <div style="
-    border: solid gray 1px;
-    border-radius: 8px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 4px;
-    color: white;
-    font-size: 13px;
-    background: rgba(0,0,0,.5);
-    font-family: system-ui;
-">
-        <div>
-            <b style="
-    color: lime;
-">PVE Mode</b> - The displayed map data will be based on PVE values.
-        </div>
+  <div style="padding: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; border-left: 3px solid lime; font-family: system-ui;">
+    <div style="color: white; font-size: 12px; font-weight: bold; margin-bottom: 2px;">PVE Mode:</div>
+    <div style="color: #ccc; font-size: 11px; line-height: 1.4;">
+      The displayed trader data will be based on PVE values.
     </div>
+  </div>
+
+  <hr style="border: 0; border-top: 1px solid #333; margin: 20px 10px 10px 10px;">
+
+  <div style="padding: 0 10px 10px 10px; font-family: system-ui; display: flex; flex-direction: column; align-items: center;">
+    <p style="margin: 0 0 8px 0; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #888; letter-spacing: 1px;">Support the Project</p>
+    <button style="width: 100%; background: #FF424D; color: white; border: none; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='#e33b44'" onmouseout="this.style.background='#FF424D'" onclick="SDPIComponents.streamDeckClient.send('sendToPlugin', 'openPatreon');">
+      Visit our Patreon
+    </button>
+  </div>
+
 </body>
 
 </html>

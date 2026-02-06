@@ -8625,31 +8625,26 @@ async function getLatestLogFile(eftPath) {
         return null;
     }
 }
-/**
- * Find server IP from EFT logs
- */
-async function findIPFromLogs(eftPath) {
+async function findServerFromLogs(eftPath) {
     try {
-        if (!eftPath) {
+        if (!eftPath)
             return null;
-        }
         const latestFile = await getLatestLogFile(eftPath);
-        if (!latestFile) {
+        if (!latestFile)
             return null;
-        }
         const content = await fs$1.promises.readFile(latestFile, "utf-8");
         const lines = content.split("\n");
         for (let i = lines.length - 1; i >= 0; i--) {
-            const match = lines[i].match(/Ip:\s([\d\.]+),/);
+            // Updated Regex to find Sid: US-SEA03G002_...
+            const match = lines[i].match(/Sid:\s([^_]+)_/);
             if (match) {
-                const ip = match[1];
-                // Find corresponding datacenter
+                const sidPrefix = match[1];
                 let datacenterName = "Unknown";
                 const datacenterData = globalThis.datacentersData;
                 if (datacenterData) {
                     for (const region in datacenterData) {
                         for (const dc of datacenterData[region]) {
-                            if (dc.unique_ips.includes(ip)) {
+                            if (dc.sids && dc.sids.some((sid) => sidPrefix.startsWith(sid))) {
                                 datacenterName = dc.datacenter;
                                 break;
                             }
@@ -8658,7 +8653,7 @@ async function findIPFromLogs(eftPath) {
                             break;
                     }
                 }
-                return { ip, datacenter: datacenterName };
+                return { sid: sidPrefix, datacenter: datacenterName };
             }
         }
         return null;
@@ -9245,7 +9240,7 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
         async updateServerInfo() {
             const settings = loadSettings();
             try {
-                this.serverInfo = await findIPFromLogs(settings.eftInstallPath);
+                this.serverInfo = await findServerFromLogs(settings.eftInstallPath);
             }
             catch (error) {
                 // Silent fail
@@ -9298,10 +9293,8 @@ let TarkovCurrentMapInfo_CurrentServer = (() => {
     return _classThis;
 })();
 
-let eftInstallPath;
-let currentServerInfo;
 let intervalUpdateInterval$1;
-const datacenterAPI = "https://tarkovbot.eu/api/streamdeck/eft-datacenters";
+const datacenterAPI = "https://tarkovbot.eu/api/streamdeck/v2/eft-datacenters";
 let datacenterData = {};
 async function refreshDatacenterData() {
     try {
@@ -9339,96 +9332,33 @@ let TarkovCurrentServerInfo = (() => {
         }
         async onKeyDown(ev) {
             ev.action.setTitle(`Loading...`);
-            eftInstallPath = ev.payload.settings.eft_install_path;
-            streamDeck.logger.info("Payload settings on keydown: " + JSON.stringify(ev.payload.settings));
+            const { eft_install_path, raid_autoupdate_check } = ev.payload.settings;
             if (intervalUpdateInterval$1) {
                 clearInterval(intervalUpdateInterval$1);
                 intervalUpdateInterval$1 = null;
             }
-            if (ev.payload.settings.raid_autoupdate_check) {
-                intervalUpdateInterval$1 = setInterval(async () => {
-                    currentServerInfo = await this.getLatestIP(eftInstallPath);
-                    streamDeck.logger.info("Auto-update interval triggered; IP:", currentServerInfo);
-                    if (currentServerInfo) {
-                        const formattedDatacenter = currentServerInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
-                        ev.action.setTitle(formattedDatacenter);
-                    }
-                    else {
-                        ev.action.setTitle(`No\nIP\nFound`);
-                    }
-                }, 3000);
-            }
-            else {
-                currentServerInfo = await this.getLatestIP(eftInstallPath);
-                streamDeck.logger.info("Auto-update disabled; IP:", currentServerInfo);
-                if (currentServerInfo) {
-                    const formattedDatacenter = currentServerInfo.datacenter.replace("North America", "NA").replace(" -", "").replace(/ /g, "\n");
-                    ev.action.setTitle(formattedDatacenter);
-                    // Wait 5 seconds and then set title again to press
-                    setTimeout(() => {
-                        ev.action.setTitle(`Get\nCurrent\nServer`);
-                    }, 5000);
+            const updateUI = async () => {
+                const info = await findServerFromLogs(eft_install_path);
+                if (info) {
+                    const formatted = info.datacenter
+                        .replace("North America", "NA")
+                        .replace(" -", "")
+                        .replace(/ /g, "\n");
+                    ev.action.setTitle(formatted);
                 }
                 else {
-                    ev.action.setTitle(`No\nIP\nFound`);
+                    ev.action.setTitle(`No\nServer\nFound`);
                 }
+                return info;
+            };
+            if (raid_autoupdate_check) {
+                intervalUpdateInterval$1 = setInterval(updateUI, 3000);
             }
-        }
-        async getLatestIP(eftPath) {
-            try {
-                const logsPath = `${eftPath}\\Logs`;
-                streamDeck.logger.info("Using logs path:", logsPath);
-                const folders = await fs$1.promises.readdir(logsPath, { withFileTypes: true });
-                const logFolders = folders
-                    .filter(f => f.isDirectory() && f.name.startsWith("log_"))
-                    .map(f => ({
-                    dirent: f,
-                    timestamp: extractTimestamp(f.name)
-                }))
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .map(f => f.dirent);
-                if (logFolders.length === 0) {
-                    streamDeck.logger.info("No log folders found");
-                    return null;
+            else {
+                const info = await updateUI();
+                if (info) {
+                    setTimeout(() => ev.action.setTitle(`Get\nCurrent\nServer`), 5000);
                 }
-                const latestFolder = `${logsPath}\\${logFolders[0].name}`;
-                streamDeck.logger.info("Checking latest log folder:", latestFolder);
-                const files = await fs$1.promises.readdir(latestFolder, { withFileTypes: true });
-                const logFiles = files
-                    .filter(f => f.isFile() && f.name.includes("application") && f.name.endsWith(".log"))
-                    .sort((a, b) => b.name.localeCompare(a.name));
-                if (logFiles.length === 0) {
-                    streamDeck.logger.info("No log files found in folder:", latestFolder);
-                    return null;
-                }
-                const latestFile = `${latestFolder}\\${logFiles[0].name}`;
-                streamDeck.logger.info("Reading latest log file:", latestFile);
-                const content = await fs$1.promises.readFile(latestFile, "utf-8");
-                const lines = content.split("\n");
-                for (let i = lines.length - 1; i >= 0; i--) {
-                    const match = lines[i].match(/Ip:\s([\d\.]+),/);
-                    if (match) {
-                        const ip = match[1];
-                        streamDeck.logger.info("IP found:", ip);
-                        // Find corresponding datacenter
-                        let datacenterName = "Unknown";
-                        for (const region in datacenterData) {
-                            for (const dc of datacenterData[region]) {
-                                if (dc.unique_ips.includes(ip)) {
-                                    datacenterName = dc.datacenter;
-                                    break;
-                                }
-                            }
-                        }
-                        return { ip, datacenter: datacenterName };
-                    }
-                }
-                streamDeck.logger.info("No IP found in latest file:", latestFile);
-                return null;
-            }
-            catch (error) {
-                streamDeck.logger.error("Error reading logs:", error);
-                return null;
             }
         }
         onDidReceiveSettings(ev) {

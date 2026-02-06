@@ -70,36 +70,29 @@ export async function getLatestLogFile(eftPath: string): Promise<string | null> 
 	}
 }
 
-/**
- * Find server IP from EFT logs
- */
-export async function findIPFromLogs(eftPath: string): Promise<{ ip: string, datacenter: string } | null> {
+export async function findServerFromLogs(eftPath: string): Promise<{ sid: string, datacenter: string } | null> {
 	try {
-		if (!eftPath) {
-			return null;
-		}
+		if (!eftPath) return null;
 
 		const latestFile = await getLatestLogFile(eftPath);
-		if (!latestFile) {
-			return null;
-		}
+		if (!latestFile) return null;
 
 		const content = await fs.promises.readFile(latestFile, "utf-8");
 		const lines = content.split("\n");
 
 		for (let i = lines.length - 1; i >= 0; i--) {
-			const match = lines[i].match(/Ip:\s([\d\.]+),/);
+			// Updated Regex to find Sid: US-SEA03G002_...
+			const match = lines[i].match(/Sid:\s([^_]+)_/);
 			if (match) {
-				const ip = match[1];
+				const sidPrefix = match[1];
 
-				// Find corresponding datacenter
 				let datacenterName = "Unknown";
 				const datacenterData = globalThis.datacentersData;
 
 				if (datacenterData) {
 					for (const region in datacenterData) {
 						for (const dc of datacenterData[region]) {
-							if (dc.unique_ips.includes(ip)) {
+							if (dc.sids && dc.sids.some((sid: string) => sidPrefix.startsWith(sid))) {
 								datacenterName = dc.datacenter;
 								break;
 							}
@@ -108,10 +101,9 @@ export async function findIPFromLogs(eftPath: string): Promise<{ ip: string, dat
 					}
 				}
 
-				return { ip, datacenter: datacenterName };
+				return { sid: sidPrefix, datacenter: datacenterName };
 			}
 		}
-
 		return null;
 	} catch (error) {
 		return null;
