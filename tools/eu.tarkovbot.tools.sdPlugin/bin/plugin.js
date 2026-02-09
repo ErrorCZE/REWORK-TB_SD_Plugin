@@ -8,107 +8,707 @@ import require$$0$2 from 'stream';
 import require$$7 from 'url';
 import require$$0 from 'zlib';
 import require$$0$1 from 'buffer';
+import fs, { existsSync, readFileSync } from 'node:fs';
 import path, { join } from 'node:path';
 import { cwd } from 'node:process';
-import fs, { existsSync, readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import fs$1 from 'fs';
 import path$1 from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-/**!
- * @author Elgato
- * @module elgato/streamdeck
- * @license MIT
- * @copyright Copyright (c) Corsair Memory Inc.
- */
 /**
- * Stream Deck device types.
+ * Default language supported by all i18n providers.
  */
-var DeviceType;
-(function (DeviceType) {
-    /**
-     * Stream Deck, comprised of 15 customizable LCD keys in a 5 x 3 layout.
-     */
-    DeviceType[DeviceType["StreamDeck"] = 0] = "StreamDeck";
-    /**
-     * Stream Deck Mini, comprised of 6 customizable LCD keys in a 3 x 2 layout.
-     */
-    DeviceType[DeviceType["StreamDeckMini"] = 1] = "StreamDeckMini";
-    /**
-     * Stream Deck XL, comprised of 32 customizable LCD keys in an 8 x 4 layout.
-     */
-    DeviceType[DeviceType["StreamDeckXL"] = 2] = "StreamDeckXL";
-    /**
-     * Stream Deck Mobile, for iOS and Android.
-     */
-    DeviceType[DeviceType["StreamDeckMobile"] = 3] = "StreamDeckMobile";
-    /**
-     * Corsair G Keys, available on select Corsair keyboards.
-     */
-    DeviceType[DeviceType["CorsairGKeys"] = 4] = "CorsairGKeys";
-    /**
-     * Stream Deck Pedal, comprised of 3 customizable pedals.
-     */
-    DeviceType[DeviceType["StreamDeckPedal"] = 5] = "StreamDeckPedal";
-    /**
-     * Corsair Voyager laptop, comprising 10 buttons in a horizontal line above the keyboard.
-     */
-    DeviceType[DeviceType["CorsairVoyager"] = 6] = "CorsairVoyager";
-    /**
-     * Stream Deck +, comprised of 8 customizable LCD keys in a 4 x 2 layout, a touch strip, and 4 dials.
-     */
-    DeviceType[DeviceType["StreamDeckPlus"] = 7] = "StreamDeckPlus";
-    /**
-     * SCUF controller G keys, available on select SCUF controllers, for example SCUF Envision.
-     */
-    DeviceType[DeviceType["SCUFController"] = 8] = "SCUFController";
-    /**
-     * Stream Deck Neo, comprised of 8 customizable LCD keys in a 4 x 2 layout, an info bar, and 2 touch points for page navigation.
-     */
-    DeviceType[DeviceType["StreamDeckNeo"] = 9] = "StreamDeckNeo";
-    /**
-     * Stream Deck Studio, comprised of 32 customizable LCD keys in a 16 x 2 layout, and 2 dials (1 on either side).
-     */
-    DeviceType[DeviceType["StreamDeckStudio"] = 10] = "StreamDeckStudio";
-    /**
-     * Virtual Stream Deck, comprised of 1 to 64 action (on-screen) on a scalable canvas, with a maximum layout of 8 x 8.
-     */
-    DeviceType[DeviceType["VirtualStreamDeck"] = 11] = "VirtualStreamDeck";
-})(DeviceType || (DeviceType = {}));
+const defaultLanguage = "en";
 
 /**
- * List of available types that can be applied to {@link Bar} and {@link GBar} to determine their style.
+ * Creates a {@link IDisposable} that defers the disposing to the {@link dispose} function; disposing is guarded so that it may only occur once.
+ * @param dispose Function responsible for disposing.
+ * @returns Disposable whereby the disposing is delegated to the {@link dispose}  function.
  */
-var BarSubType;
-(function (BarSubType) {
+function deferredDisposable(dispose) {
+    let isDisposed = false;
+    const guardedDispose = () => {
+        if (!isDisposed) {
+            dispose();
+            isDisposed = true;
+        }
+    };
+    return {
+        [Symbol.dispose]: guardedDispose,
+        dispose: guardedDispose,
+    };
+}
+
+/**
+ * An event emitter that enables the listening for, and emitting of, events.
+ */
+class EventEmitter {
     /**
-     * Rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
+     * Underlying collection of events and their listeners.
      */
-    BarSubType[BarSubType["Rectangle"] = 0] = "Rectangle";
+    events = new Map();
     /**
-     * Rectangle bar; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}.
-     * @example
-     * // Value is 2, range is 1-10.
-     * // [  ███     ]
-     * @example
-     * // Value is 10, range is 1-10.
-     * // [     █████]
+     * Adds the event {@link listener} for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns This instance with the {@link listener} added.
      */
-    BarSubType[BarSubType["DoubleRectangle"] = 1] = "DoubleRectangle";
+    addListener(eventName, listener) {
+        return this.add(eventName, listener, (listeners) => listeners.push({ listener }));
+    }
     /**
-     * Trapezoid bar, represented as a right-angle triangle; the bar fills from left to right, determined by the {@link Bar.value}, similar to a volume meter.
+     * Adds the event {@link listener} for the event named {@link eventName}, and returns a disposable capable of removing the event listener.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns A disposable that removes the listener when disposed.
      */
-    BarSubType[BarSubType["Trapezoid"] = 2] = "Trapezoid";
+    disposableOn(eventName, listener) {
+        this.add(eventName, listener, (listeners) => listeners.push({ listener }));
+        return deferredDisposable(() => this.removeListener(eventName, listener));
+    }
     /**
-     * Trapezoid bar, represented by two right-angle triangles; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}. See {@link BarSubType.DoubleRectangle}.
+     * Emits the {@link eventName}, invoking all event listeners with the specified {@link args}.
+     * @param eventName Name of the event.
+     * @param args Arguments supplied to each event listener.
+     * @returns `true` when there was a listener associated with the event; otherwise `false`.
      */
-    BarSubType[BarSubType["DoubleTrapezoid"] = 3] = "DoubleTrapezoid";
+    emit(eventName, ...args) {
+        const listeners = this.events.get(eventName);
+        if (listeners === undefined) {
+            return false;
+        }
+        for (let i = 0; i < listeners.length;) {
+            const { listener, once } = listeners[i];
+            if (once) {
+                this.remove(eventName, listeners, i);
+            }
+            else {
+                i++;
+            }
+            listener(...args);
+        }
+        return true;
+    }
     /**
-     * Rounded rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
+     * Gets the event names with event listeners.
+     * @returns Event names.
      */
-    BarSubType[BarSubType["Groove"] = 4] = "Groove";
-})(BarSubType || (BarSubType = {}));
+    eventNames() {
+        return Array.from(this.events.keys());
+    }
+    /**
+     * Gets the number of event listeners for the event named {@link eventName}. When a {@link listener} is defined, only matching event listeners are counted.
+     * @param eventName Name of the event.
+     * @param listener Optional event listener to count.
+     * @returns Number of event listeners.
+     */
+    listenerCount(eventName, listener) {
+        const listeners = this.events.get(eventName);
+        if (listeners === undefined || listener == undefined) {
+            return listeners?.length || 0;
+        }
+        let count = 0;
+        listeners.forEach((ev) => {
+            if (ev.listener === listener) {
+                count++;
+            }
+        });
+        return count;
+    }
+    /**
+     * Gets the event listeners for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @returns The event listeners.
+     */
+    listeners(eventName) {
+        return Array.from(this.events.get(eventName) || []).map(({ listener }) => listener);
+    }
+    /**
+     * Removes the event {@link listener} for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns This instance with the event {@link listener} removed.
+     */
+    off(eventName, listener) {
+        const listeners = this.events.get(eventName) ?? [];
+        for (let i = listeners.length - 1; i >= 0; i--) {
+            if (listeners[i].listener === listener) {
+                this.remove(eventName, listeners, i);
+            }
+        }
+        return this;
+    }
+    /**
+     * Adds the event {@link listener} for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns This instance with the event {@link listener} added.
+     */
+    on(eventName, listener) {
+        return this.add(eventName, listener, (listeners) => listeners.push({ listener }));
+    }
+    /**
+     * Adds the **one-time** event {@link listener} for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns This instance with the event {@link listener} added.
+     */
+    once(eventName, listener) {
+        return this.add(eventName, listener, (listeners) => listeners.push({ listener, once: true }));
+    }
+    /**
+     * Adds the event {@link listener} to the beginning of the listeners for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns This instance with the event {@link listener} prepended.
+     */
+    prependListener(eventName, listener) {
+        return this.add(eventName, listener, (listeners) => listeners.splice(0, 0, { listener }));
+    }
+    /**
+     * Adds the **one-time** event {@link listener} to the beginning of the listeners for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns This instance with the event {@link listener} prepended.
+     */
+    prependOnceListener(eventName, listener) {
+        return this.add(eventName, listener, (listeners) => listeners.splice(0, 0, { listener, once: true }));
+    }
+    /**
+     * Removes all event listeners for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @returns This instance with the event listeners removed
+     */
+    removeAllListeners(eventName) {
+        const listeners = this.events.get(eventName) ?? [];
+        while (listeners.length > 0) {
+            this.remove(eventName, listeners, 0);
+        }
+        this.events.delete(eventName);
+        return this;
+    }
+    /**
+     * Removes the event {@link listener} for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @returns This instance with the event {@link listener} removed.
+     */
+    removeListener(eventName, listener) {
+        return this.off(eventName, listener);
+    }
+    /**
+     * Adds the event {@link listener} for the event named {@link eventName}.
+     * @param eventName Name of the event.
+     * @param listener Event handler function.
+     * @param fn Function responsible for adding the new event handler function.
+     * @returns This instance with event {@link listener} added.
+     */
+    add(eventName, listener, fn) {
+        let listeners = this.events.get(eventName);
+        if (listeners === undefined) {
+            listeners = [];
+            this.events.set(eventName, listeners);
+        }
+        fn(listeners);
+        if (eventName !== "newListener") {
+            const args = [eventName, listener];
+            this.emit("newListener", ...args);
+        }
+        return this;
+    }
+    /**
+     * Removes the listener at the given index.
+     * @param eventName Name of the event.
+     * @param listeners Listeners registered with the event.
+     * @param index Index of the listener to remove.
+     */
+    remove(eventName, listeners, index) {
+        const [{ listener }] = listeners.splice(index, 1);
+        if (eventName !== "removeListener") {
+            const args = [eventName, listener];
+            this.emit("removeListener", ...args);
+        }
+    }
+}
+
+/**
+ * Prevents the modification of existing property attributes and values on the value, and all of its child properties, and prevents the addition of new properties.
+ * @param value Value to freeze.
+ */
+function freeze(value) {
+    if (value !== undefined && value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+        Object.freeze(value);
+        Object.values(value).forEach(freeze);
+    }
+}
+/**
+ * Gets the value at the specified {@link path}.
+ * @param source Source object that is being read from.
+ * @param path Path to the property to get.
+ * @returns Value of the property.
+ */
+function get(source, path) {
+    const props = path.split(".");
+    return props.reduce((obj, prop) => obj && obj[prop], source);
+}
+
+/**
+ * Internalization provider, responsible for managing localizations and translating resources.
+ */
+class I18nProvider {
+    /**
+     * Backing field for the default language.
+     */
+    #language;
+    /**
+     * Map of localized resources, indexed by their language.
+     */
+    #translations = new Map();
+    /**
+     * Function responsible for providing localized resources for a given language.
+     */
+    #readTranslations;
+    /**
+     * Internal events handler.
+     */
+    #events = new EventEmitter();
+    /**
+     * Initializes a new instance of the {@link I18nProvider} class.
+     * @param language The default language to be used when retrieving translations for a given key.
+     * @param readTranslations Function responsible for providing localized resources for a given language.
+     */
+    constructor(language, readTranslations) {
+        this.#language = language;
+        this.#readTranslations = readTranslations;
+    }
+    /**
+     * The default language of the provider.
+     * @returns The language.
+     */
+    get language() {
+        return this.#language;
+    }
+    /**
+     * The default language of the provider.
+     * @param value The language.
+     */
+    set language(value) {
+        if (this.#language !== value) {
+            this.#language = value;
+            this.#events.emit("languageChange", value);
+        }
+    }
+    /**
+     * Adds an event listener that is called when the language within the provider changes.
+     * @param listener Listener function to be called.
+     * @returns Resource manager that, when disposed, removes the event listener.
+     */
+    onLanguageChange(listener) {
+        return this.#events.disposableOn("languageChange", listener);
+    }
+    /**
+     * Translates the specified {@link key}, as defined within the resources for the {@link language}.
+     * When the key is not found, the default language is checked. Alias of {@link I18nProvider.translate}.
+     * @param key Key of the translation.
+     * @param language Optional language to get the translation for; otherwise the default language.
+     * @returns The translation; otherwise the key.
+     */
+    t(key, language = this.language) {
+        return this.translate(key, language);
+    }
+    /**
+     * Translates the specified {@link key}, as defined within the resources for the {@link language}.
+     * When the key is not found, the default language is checked.
+     * @param key Key of the translation.
+     * @param language Optional language to get the translation for; otherwise the default language.
+     * @returns The translation; otherwise the key.
+     */
+    translate(key, language = this.language) {
+        // Determine the languages to search for.
+        const languages = new Set([
+            language,
+            language.replaceAll("_", "-").split("-").at(0),
+            defaultLanguage,
+        ]);
+        // Attempt to find the resource for the languages.
+        for (const language of languages) {
+            const resource = get(this.getTranslations(language), key);
+            if (resource) {
+                return resource.toString();
+            }
+        }
+        // Otherwise fallback to the key.
+        return key;
+    }
+    /**
+     * Gets the translations for the specified language.
+     * @param language Language whose translations are being retrieved.
+     * @returns The translations; otherwise `null`.
+     */
+    getTranslations(language) {
+        let translations = this.#translations.get(language);
+        if (translations === undefined) {
+            translations = this.#readTranslations(language);
+            freeze(translations);
+            this.#translations.set(language, translations);
+        }
+        return translations;
+    }
+}
+
+/**
+ * Provides a read-only iterable collection of items that also acts as a partial polyfill for iterator helpers.
+ */
+class Enumerable {
+    /**
+     * Backing function responsible for providing the iterator of items.
+     */
+    #items;
+    /**
+     * Backing function for {@link Enumerable.length}.
+     */
+    #length;
+    /**
+     * Captured iterator from the underlying iterable; used to fulfil {@link IterableIterator} methods.
+     */
+    #iterator;
+    /**
+     * Initializes a new instance of the {@link Enumerable} class.
+     * @param source Source that contains the items.
+     * @returns The enumerable.
+     */
+    constructor(source) {
+        if (source instanceof Enumerable) {
+            // Enumerable
+            this.#items = source.#items;
+            this.#length = source.#length;
+        }
+        else if (Array.isArray(source)) {
+            // Array
+            this.#items = () => source.values();
+            this.#length = () => source.length;
+        }
+        else if (source instanceof Map || source instanceof Set) {
+            // Map or Set
+            this.#items = () => source.values();
+            this.#length = () => source.size;
+        }
+        else {
+            // IterableIterator delegate
+            this.#items = source;
+            this.#length = () => {
+                let i = 0;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                for (const _ of this) {
+                    i++;
+                }
+                return i;
+            };
+        }
+    }
+    /**
+     * Gets the number of items in the enumerable.
+     * @returns The number of items.
+     */
+    get length() {
+        return this.#length();
+    }
+    /**
+     * Gets the iterator for the enumerable.
+     * @yields The items.
+     */
+    *[Symbol.iterator]() {
+        for (const item of this.#items()) {
+            yield item;
+        }
+    }
+    /**
+     * Transforms each item within this iterator to an indexed pair, with each pair represented as an array.
+     * @returns An iterator of indexed pairs.
+     */
+    asIndexedPairs() {
+        return new Enumerable(function* () {
+            let i = 0;
+            for (const item of this) {
+                yield [i++, item];
+            }
+        }.bind(this));
+    }
+    /**
+     * Returns an iterator with the first items dropped, up to the specified limit.
+     * @param limit The number of elements to drop from the start of the iteration.
+     * @returns An iterator of items after the limit.
+     */
+    drop(limit) {
+        if (isNaN(limit) || limit < 0) {
+            throw new RangeError("limit must be 0, or a positive number");
+        }
+        return new Enumerable(function* () {
+            let i = 0;
+            for (const item of this) {
+                if (i++ >= limit) {
+                    yield item;
+                }
+            }
+        }.bind(this));
+    }
+    /**
+     * Determines whether all items satisfy the specified predicate.
+     * @param predicate Function that determines whether each item fulfils the predicate.
+     * @returns `true` when all items satisfy the predicate; otherwise `false`.
+     */
+    every(predicate) {
+        for (const item of this) {
+            if (!predicate(item)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    /**
+     * Returns an iterator of items that meet the specified predicate..
+     * @param predicate Function that determines which items to filter.
+     * @returns An iterator of filtered items.
+     */
+    filter(predicate) {
+        return new Enumerable(function* () {
+            for (const item of this) {
+                if (predicate(item)) {
+                    yield item;
+                }
+            }
+        }.bind(this));
+    }
+    /**
+     * Finds the first item that satisfies the specified predicate.
+     * @param predicate Predicate to match items against.
+     * @returns The first item that satisfied the predicate; otherwise `undefined`.
+     */
+    find(predicate) {
+        for (const item of this) {
+            if (predicate(item)) {
+                return item;
+            }
+        }
+    }
+    /**
+     * Finds the last item that satisfies the specified predicate.
+     * @param predicate Predicate to match items against.
+     * @returns The first item that satisfied the predicate; otherwise `undefined`.
+     */
+    findLast(predicate) {
+        let result = undefined;
+        for (const item of this) {
+            if (predicate(item)) {
+                result = item;
+            }
+        }
+        return result;
+    }
+    /**
+     * Returns an iterator containing items transformed using the specified mapper function.
+     * @param mapper Function responsible for transforming each item.
+     * @returns An iterator of transformed items.
+     */
+    flatMap(mapper) {
+        return new Enumerable(function* () {
+            for (const item of this) {
+                for (const mapped of mapper(item)) {
+                    yield mapped;
+                }
+            }
+        }.bind(this));
+    }
+    /**
+     * Iterates over each item, and invokes the specified function.
+     * @param fn Function to invoke against each item.
+     */
+    forEach(fn) {
+        for (const item of this) {
+            fn(item);
+        }
+    }
+    /**
+     * Determines whether the search item exists in the collection exists.
+     * @param search Item to search for.
+     * @returns `true` when the item was found; otherwise `false`.
+     */
+    includes(search) {
+        return this.some((item) => item === search);
+    }
+    /**
+     * Returns an iterator of mapped items using the mapper function.
+     * @param mapper Function responsible for mapping the items.
+     * @returns An iterator of mapped items.
+     */
+    map(mapper) {
+        return new Enumerable(function* () {
+            for (const item of this) {
+                yield mapper(item);
+            }
+        }.bind(this));
+    }
+    /**
+     * Captures the underlying iterable, if it is not already captured, and gets the next item in the iterator.
+     * @param args Optional values to send to the generator.
+     * @returns An iterator result of the current iteration; when `done` is `false`, the current `value` is provided.
+     */
+    next(...args) {
+        this.#iterator ??= this.#items();
+        const result = this.#iterator.next(...args);
+        if (result.done) {
+            this.#iterator = undefined;
+        }
+        return result;
+    }
+    /**
+     * Applies the accumulator function to each item, and returns the result.
+     * @param accumulator Function responsible for accumulating all items within the collection.
+     * @param initial Initial value supplied to the accumulator.
+     * @returns Result of accumulating each value.
+     */
+    reduce(accumulator, initial) {
+        if (this.length === 0) {
+            if (initial === undefined) {
+                throw new TypeError("Reduce of empty enumerable with no initial value.");
+            }
+            return initial;
+        }
+        let result = initial;
+        for (const item of this) {
+            if (result === undefined) {
+                result = item;
+            }
+            else {
+                result = accumulator(result, item);
+            }
+        }
+        return result;
+    }
+    /**
+     * Acts as if a `return` statement is inserted in the generator's body at the current suspended position.
+     *
+     * Please note, in the context of an {@link Enumerable}, calling {@link Enumerable.return} will clear the captured iterator,
+     * if there is one. Subsequent calls to {@link Enumerable.next} will result in re-capturing the underlying iterable, and
+     * yielding items from the beginning.
+     * @param value Value to return.
+     * @returns The value as an iterator result.
+     */
+    return(value) {
+        this.#iterator = undefined;
+        return { done: true, value };
+    }
+    /**
+     * Determines whether an item in the collection exists that satisfies the specified predicate.
+     * @param predicate Function used to search for an item.
+     * @returns `true` when the item was found; otherwise `false`.
+     */
+    some(predicate) {
+        for (const item of this) {
+            if (predicate(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    /**
+     * Returns an iterator with the items, from 0, up to the specified limit.
+     * @param limit Limit of items to take.
+     * @returns An iterator of items from 0 to the limit.
+     */
+    take(limit) {
+        if (isNaN(limit) || limit < 0) {
+            throw new RangeError("limit must be 0, or a positive number");
+        }
+        return new Enumerable(function* () {
+            let i = 0;
+            for (const item of this) {
+                if (i++ < limit) {
+                    yield item;
+                }
+            }
+        }.bind(this));
+    }
+    /**
+     * Acts as if a `throw` statement is inserted in the generator's body at the current suspended position.
+     * @param e Error to throw.
+     */
+    throw(e) {
+        throw e;
+    }
+    /**
+     * Converts this iterator to an array.
+     * @returns The array of items from this iterator.
+     */
+    toArray() {
+        return Array.from(this);
+    }
+    /**
+     * Converts this iterator to serializable collection.
+     * @returns The serializable collection of items.
+     */
+    toJSON() {
+        return this.toArray();
+    }
+    /**
+     * Converts this iterator to a string.
+     * @returns The string.
+     */
+    toString() {
+        return `${this.toArray()}`;
+    }
+}
+
+// Polyfill, explicit resource management https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-2.html#using-declarations-and-explicit-resource-management
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+Symbol.dispose ??= Symbol("Symbol.dispose");
+
+/**
+ * Provides a wrapper around a value that is lazily instantiated.
+ */
+class Lazy {
+    /**
+     * Private backing field for {@link Lazy.value}.
+     */
+    #value = undefined;
+    /**
+     * Factory responsible for instantiating the value.
+     */
+    #valueFactory;
+    /**
+     * Initializes a new instance of the {@link Lazy} class.
+     * @param valueFactory The factory responsible for instantiating the value.
+     */
+    constructor(valueFactory) {
+        this.#valueFactory = valueFactory;
+    }
+    /**
+     * Gets the value.
+     * @returns The value.
+     */
+    get value() {
+        if (this.#value === undefined) {
+            this.#value = this.#valueFactory();
+        }
+        return this.#value;
+    }
+}
+
+/**
+ * Returns an object that contains a promise and two functions to resolve or reject it.
+ * @returns The promise, and the resolve and reject functions.
+ */
+function withResolvers() {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
 
 function getDefaultExportFromCjs (x) {
 	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
@@ -5096,11 +5696,93 @@ requireWebsocketServer();
  * @license MIT
  * @copyright Copyright (c) Corsair Memory Inc.
  */
+/**
+ * Stream Deck device types.
+ */
+var DeviceType;
+(function (DeviceType) {
+    /**
+     * Stream Deck, comprised of 15 customizable LCD keys in a 5 x 3 layout.
+     */
+    DeviceType[DeviceType["StreamDeck"] = 0] = "StreamDeck";
+    /**
+     * Stream Deck Mini, comprised of 6 customizable LCD keys in a 3 x 2 layout.
+     */
+    DeviceType[DeviceType["StreamDeckMini"] = 1] = "StreamDeckMini";
+    /**
+     * Stream Deck XL, comprised of 32 customizable LCD keys in an 8 x 4 layout.
+     */
+    DeviceType[DeviceType["StreamDeckXL"] = 2] = "StreamDeckXL";
+    /**
+     * Stream Deck Mobile, for iOS and Android.
+     */
+    DeviceType[DeviceType["StreamDeckMobile"] = 3] = "StreamDeckMobile";
+    /**
+     * Corsair G Keys, available on select Corsair keyboards.
+     */
+    DeviceType[DeviceType["CorsairGKeys"] = 4] = "CorsairGKeys";
+    /**
+     * Stream Deck Pedal, comprised of 3 customizable pedals.
+     */
+    DeviceType[DeviceType["StreamDeckPedal"] = 5] = "StreamDeckPedal";
+    /**
+     * Corsair Voyager laptop, comprising 10 buttons in a horizontal line above the keyboard.
+     */
+    DeviceType[DeviceType["CorsairVoyager"] = 6] = "CorsairVoyager";
+    /**
+     * Stream Deck +, comprised of 8 customizable LCD keys in a 4 x 2 layout, a touch strip, and 4 dials.
+     */
+    DeviceType[DeviceType["StreamDeckPlus"] = 7] = "StreamDeckPlus";
+    /**
+     * SCUF controller G keys, available on select SCUF controllers, for example SCUF Envision.
+     */
+    DeviceType[DeviceType["SCUFController"] = 8] = "SCUFController";
+    /**
+     * Stream Deck Neo, comprised of 8 customizable LCD keys in a 4 x 2 layout, an info bar, and 2 touch points for page navigation.
+     */
+    DeviceType[DeviceType["StreamDeckNeo"] = 9] = "StreamDeckNeo";
+    /**
+     * Stream Deck Studio, comprised of 32 customizable LCD keys in a 16 x 2 layout, and 2 dials (1 on either side).
+     */
+    DeviceType[DeviceType["StreamDeckStudio"] = 10] = "StreamDeckStudio";
+    /**
+     * Virtual Stream Deck, comprised of 1 to 64 action (on-screen) on a scalable canvas, with a maximum layout of 8 x 8.
+     */
+    DeviceType[DeviceType["VirtualStreamDeck"] = 11] = "VirtualStreamDeck";
+})(DeviceType || (DeviceType = {}));
 
 /**
- * Languages supported by Stream Deck.
+ * List of available types that can be applied to {@link Bar} and {@link GBar} to determine their style.
  */
-const supportedLanguages = ["de", "en", "es", "fr", "ja", "ko", "zh_CN", "zh_TW"];
+var BarSubType;
+(function (BarSubType) {
+    /**
+     * Rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
+     */
+    BarSubType[BarSubType["Rectangle"] = 0] = "Rectangle";
+    /**
+     * Rectangle bar; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}.
+     * @example
+     * // Value is 2, range is 1-10.
+     * // [  ███     ]
+     * @example
+     * // Value is 10, range is 1-10.
+     * // [     █████]
+     */
+    BarSubType[BarSubType["DoubleRectangle"] = 1] = "DoubleRectangle";
+    /**
+     * Trapezoid bar, represented as a right-angle triangle; the bar fills from left to right, determined by the {@link Bar.value}, similar to a volume meter.
+     */
+    BarSubType[BarSubType["Trapezoid"] = 2] = "Trapezoid";
+    /**
+     * Trapezoid bar, represented by two right-angle triangles; the bar fills outwards from the centre of the bar, determined by the {@link Bar.value}. See {@link BarSubType.DoubleRectangle}.
+     */
+    BarSubType[BarSubType["DoubleTrapezoid"] = 3] = "DoubleTrapezoid";
+    /**
+     * Rounded rectangle bar; the bar fills from left to right, determined by the {@link Bar.value}, similar to a standard progress bar.
+     */
+    BarSubType[BarSubType["Groove"] = 4] = "Groove";
+})(BarSubType || (BarSubType = {}));
 
 /**
  * Defines the type of argument supplied by Stream Deck.
@@ -5143,990 +5825,6 @@ var Target;
      */
     Target[Target["Software"] = 2] = "Software";
 })(Target || (Target = {}));
-
-/**
- * Prevents the modification of existing property attributes and values on the value, and all of its child properties, and prevents the addition of new properties.
- * @param value Value to freeze.
- */
-function freeze(value) {
-    if (value !== undefined && value !== null && typeof value === "object" && !Object.isFrozen(value)) {
-        Object.freeze(value);
-        Object.values(value).forEach(freeze);
-    }
-}
-/**
- * Gets the value at the specified {@link path}.
- * @param path Path to the property to get.
- * @param source Source object that is being read from.
- * @returns Value of the property.
- */
-function get(path, source) {
-    const props = path.split(".");
-    return props.reduce((obj, prop) => obj && obj[prop], source);
-}
-
-/**
- * Internalization provider, responsible for managing localizations and translating resources.
- */
-class I18nProvider {
-    language;
-    readTranslations;
-    /**
-     * Default language to be used when a resource does not exist for the desired language.
-     */
-    static DEFAULT_LANGUAGE = "en";
-    /**
-     * Map of localized resources, indexed by their language.
-     */
-    _translations = new Map();
-    /**
-     * Initializes a new instance of the {@link I18nProvider} class.
-     * @param language The default language to be used when retrieving translations for a given key.
-     * @param readTranslations Function responsible for loading translations.
-     */
-    constructor(language, readTranslations) {
-        this.language = language;
-        this.readTranslations = readTranslations;
-    }
-    /**
-     * Translates the specified {@link key}, as defined within the resources for the {@link language}. When the key is not found, the default language is checked.
-     *
-     * Alias of `I18nProvider.translate(string, Language)`
-     * @param key Key of the translation.
-     * @param language Optional language to get the translation for; otherwise the default language.
-     * @returns The translation; otherwise the key.
-     */
-    t(key, language = this.language) {
-        return this.translate(key, language);
-    }
-    /**
-     * Translates the specified {@link key}, as defined within the resources for the {@link language}. When the key is not found, the default language is checked.
-     * @param key Key of the translation.
-     * @param language Optional language to get the translation for; otherwise the default language.
-     * @returns The translation; otherwise the key.
-     */
-    translate(key, language = this.language) {
-        // When the language and default are the same, only check the language.
-        if (language === I18nProvider.DEFAULT_LANGUAGE) {
-            return get(key, this.getTranslations(language))?.toString() || key;
-        }
-        // Otherwise check the language and default.
-        return (get(key, this.getTranslations(language))?.toString() ||
-            get(key, this.getTranslations(I18nProvider.DEFAULT_LANGUAGE))?.toString() ||
-            key);
-    }
-    /**
-     * Gets the translations for the specified language.
-     * @param language Language whose translations are being retrieved.
-     * @returns The translations, otherwise `null`.
-     */
-    getTranslations(language) {
-        let translations = this._translations.get(language);
-        if (translations === undefined) {
-            translations = supportedLanguages.includes(language) ? this.readTranslations(language) : null;
-            freeze(translations);
-            this._translations.set(language, translations);
-        }
-        return translations;
-    }
-}
-/**
- * Parses the localizations from the specified contents, or throws a `TypeError` when unsuccessful.
- * @param contents Contents that represent the stringified JSON containing the localizations.
- * @returns The localizations; otherwise a `TypeError`.
- */
-function parseLocalizations(contents) {
-    const json = JSON.parse(contents);
-    if (json !== undefined && json !== null && typeof json === "object" && "Localization" in json) {
-        return json["Localization"];
-    }
-    throw new TypeError(`Translations must be a JSON object nested under a property named "Localization"`);
-}
-
-/**
- * Levels of logging.
- */
-var LogLevel;
-(function (LogLevel) {
-    /**
-     * Error message used to indicate an error was thrown, or something critically went wrong.
-     */
-    LogLevel[LogLevel["ERROR"] = 0] = "ERROR";
-    /**
-     * Warning message used to indicate something went wrong, but the application is able to recover.
-     */
-    LogLevel[LogLevel["WARN"] = 1] = "WARN";
-    /**
-     * Information message for general usage.
-     */
-    LogLevel[LogLevel["INFO"] = 2] = "INFO";
-    /**
-     * Debug message used to detail information useful for profiling the applications runtime.
-     */
-    LogLevel[LogLevel["DEBUG"] = 3] = "DEBUG";
-    /**
-     * Trace message used to monitor low-level information such as method calls, performance tracking, etc.
-     */
-    LogLevel[LogLevel["TRACE"] = 4] = "TRACE";
-})(LogLevel || (LogLevel = {}));
-
-/**
- * Provides a {@link LogTarget} that logs to the console.
- */
-class ConsoleTarget {
-    /**
-     * @inheritdoc
-     */
-    write(entry) {
-        switch (entry.level) {
-            case LogLevel.ERROR:
-                console.error(...entry.data);
-                break;
-            case LogLevel.WARN:
-                console.warn(...entry.data);
-                break;
-            default:
-                console.log(...entry.data);
-        }
-    }
-}
-
-// Remove any dependencies on node.
-const EOL = "\n";
-/**
- * Creates a new string log entry formatter.
- * @param opts Options that defines the type for the formatter.
- * @returns The string {@link LogEntryFormatter}.
- */
-function stringFormatter(opts) {
-    {
-        return (entry) => {
-            const { data, level, scope } = entry;
-            let prefix = `${new Date().toISOString()} ${LogLevel[level].padEnd(5)} `;
-            if (scope) {
-                prefix += `${scope}: `;
-            }
-            return `${prefix}${reduce(data)}`;
-        };
-    }
-}
-/**
- * Stringifies the provided data parameters that make up the log entry.
- * @param data Data parameters.
- * @returns The data represented as a single `string`.
- */
-function reduce(data) {
-    let result = "";
-    let previousWasError = false;
-    for (const value of data) {
-        // When the value is an error, write the stack.
-        if (typeof value === "object" && value instanceof Error) {
-            result += `${EOL}${value.stack}`;
-            previousWasError = true;
-            continue;
-        }
-        // When the previous was an error, write a new line.
-        if (previousWasError) {
-            result += EOL;
-            previousWasError = false;
-        }
-        result += typeof value === "object" ? JSON.stringify(value) : value;
-        result += " ";
-    }
-    return result.trimEnd();
-}
-
-/**
- * Logger capable of forwarding messages to a {@link LogTarget}.
- */
-class Logger {
-    /**
-     * Backing field for the {@link Logger.level}.
-     */
-    _level;
-    /**
-     * Options that define the loggers behavior.
-     */
-    options;
-    /**
-     * Scope associated with this {@link Logger}.
-     */
-    scope;
-    /**
-     * Initializes a new instance of the {@link Logger} class.
-     * @param opts Options that define the loggers behavior.
-     */
-    constructor(opts) {
-        this.options = { minimumLevel: LogLevel.TRACE, ...opts };
-        this.scope = this.options.scope === undefined || this.options.scope.trim() === "" ? "" : this.options.scope;
-        if (typeof this.options.level !== "function") {
-            this.setLevel(this.options.level);
-        }
-    }
-    /**
-     * Gets the {@link LogLevel}.
-     * @returns The {@link LogLevel}.
-     */
-    get level() {
-        if (this._level !== undefined) {
-            return this._level;
-        }
-        return typeof this.options.level === "function" ? this.options.level() : this.options.level;
-    }
-    /**
-     * Creates a scoped logger with the given {@link scope}; logs created by scoped-loggers include their scope to enable their source to be easily identified.
-     * @param scope Value that represents the scope of the new logger.
-     * @returns The scoped logger, or this instance when {@link scope} is not defined.
-     */
-    createScope(scope) {
-        scope = scope.trim();
-        if (scope === "") {
-            return this;
-        }
-        return new Logger({
-            ...this.options,
-            level: () => this.level,
-            scope: this.options.scope ? `${this.options.scope}->${scope}` : scope,
-        });
-    }
-    /**
-     * Writes the arguments as a debug log entry.
-     * @param data Message or data to log.
-     * @returns This instance for chaining.
-     */
-    debug(...data) {
-        return this.write({ level: LogLevel.DEBUG, data, scope: this.scope });
-    }
-    /**
-     * Writes the arguments as error log entry.
-     * @param data Message or data to log.
-     * @returns This instance for chaining.
-     */
-    error(...data) {
-        return this.write({ level: LogLevel.ERROR, data, scope: this.scope });
-    }
-    /**
-     * Writes the arguments as an info log entry.
-     * @param data Message or data to log.
-     * @returns This instance for chaining.
-     */
-    info(...data) {
-        return this.write({ level: LogLevel.INFO, data, scope: this.scope });
-    }
-    /**
-     * Sets the log-level that determines which logs should be written. The specified level will be inherited by all scoped loggers unless they have log-level explicitly defined.
-     * @param level The log-level that determines which logs should be written; when `undefined`, the level will be inherited from the parent logger, or default to the environment level.
-     * @returns This instance for chaining.
-     */
-    setLevel(level) {
-        if (level !== undefined && level > this.options.minimumLevel) {
-            this._level = LogLevel.INFO;
-            this.warn(`Log level cannot be set to ${LogLevel[level]} whilst not in debug mode.`);
-        }
-        else {
-            this._level = level;
-        }
-        return this;
-    }
-    /**
-     * Writes the arguments as a trace log entry.
-     * @param data Message or data to log.
-     * @returns This instance for chaining.
-     */
-    trace(...data) {
-        return this.write({ level: LogLevel.TRACE, data, scope: this.scope });
-    }
-    /**
-     * Writes the arguments as a warning log entry.
-     * @param data Message or data to log.
-     * @returns This instance for chaining.
-     */
-    warn(...data) {
-        return this.write({ level: LogLevel.WARN, data, scope: this.scope });
-    }
-    /**
-     * Writes the log entry.
-     * @param entry Log entry to write.
-     * @returns This instance for chaining.
-     */
-    write(entry) {
-        if (entry.level <= this.level) {
-            this.options.targets.forEach((t) => t.write(entry));
-        }
-        return this;
-    }
-}
-
-// Polyfill, explicit resource management https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-2.html#using-declarations-and-explicit-resource-management
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-Symbol.dispose ??= Symbol("Symbol.dispose");
-/**
- * Creates a {@link IDisposable} that defers the disposing to the {@link dispose} function; disposing is guarded so that it may only occur once.
- * @param dispose Function responsible for disposing.
- * @returns Disposable whereby the disposing is delegated to the {@link dispose}  function.
- */
-function deferredDisposable(dispose) {
-    let isDisposed = false;
-    const guardedDispose = () => {
-        if (!isDisposed) {
-            dispose();
-            isDisposed = true;
-        }
-    };
-    return {
-        [Symbol.dispose]: guardedDispose,
-        dispose: guardedDispose,
-    };
-}
-
-/**
- * An event emitter that enables the listening for, and emitting of, events.
- */
-class EventEmitter {
-    /**
-     * Underlying collection of events and their listeners.
-     */
-    events = new Map();
-    /**
-     * Adds the event {@link listener} for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns This instance with the {@link listener} added.
-     */
-    addListener(eventName, listener) {
-        return this.on(eventName, listener);
-    }
-    /**
-     * Adds the event {@link listener} for the event named {@link eventName}, and returns a disposable capable of removing the event listener.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns A disposable that removes the listener when disposed.
-     */
-    disposableOn(eventName, listener) {
-        this.addListener(eventName, listener);
-        return deferredDisposable(() => this.removeListener(eventName, listener));
-    }
-    /**
-     * Emits the {@link eventName}, invoking all event listeners with the specified {@link args}.
-     * @param eventName Name of the event.
-     * @param args Arguments supplied to each event listener.
-     * @returns `true` when there was a listener associated with the event; otherwise `false`.
-     */
-    emit(eventName, ...args) {
-        const listeners = this.events.get(eventName);
-        if (listeners === undefined) {
-            return false;
-        }
-        for (let i = 0; i < listeners.length;) {
-            const { listener, once } = listeners[i];
-            if (once) {
-                listeners.splice(i, 1);
-            }
-            else {
-                i++;
-            }
-            listener(...args);
-        }
-        return true;
-    }
-    /**
-     * Gets the event names with event listeners.
-     * @returns Event names.
-     */
-    eventNames() {
-        return Array.from(this.events.keys());
-    }
-    /**
-     * Gets the number of event listeners for the event named {@link eventName}. When a {@link listener} is defined, only matching event listeners are counted.
-     * @param eventName Name of the event.
-     * @param listener Optional event listener to count.
-     * @returns Number of event listeners.
-     */
-    listenerCount(eventName, listener) {
-        const listeners = this.events.get(eventName);
-        if (listeners === undefined || listener == undefined) {
-            return listeners?.length || 0;
-        }
-        let count = 0;
-        listeners.forEach((ev) => {
-            if (ev.listener === listener) {
-                count++;
-            }
-        });
-        return count;
-    }
-    /**
-     * Gets the event listeners for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @returns The event listeners.
-     */
-    listeners(eventName) {
-        return Array.from(this.events.get(eventName) || []).map(({ listener }) => listener);
-    }
-    /**
-     * Removes the event {@link listener} for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns This instance with the event {@link listener} removed.
-     */
-    off(eventName, listener) {
-        const listeners = this.events.get(eventName) || [];
-        for (let i = listeners.length - 1; i >= 0; i--) {
-            if (listeners[i].listener === listener) {
-                listeners.splice(i, 1);
-            }
-        }
-        return this;
-    }
-    /**
-     * Adds the event {@link listener} for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns This instance with the event {@link listener} added.
-     */
-    on(eventName, listener) {
-        return this.add(eventName, (listeners) => listeners.push({ listener }));
-    }
-    /**
-     * Adds the **one-time** event {@link listener} for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns This instance with the event {@link listener} added.
-     */
-    once(eventName, listener) {
-        return this.add(eventName, (listeners) => listeners.push({ listener, once: true }));
-    }
-    /**
-     * Adds the event {@link listener} to the beginning of the listeners for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns This instance with the event {@link listener} prepended.
-     */
-    prependListener(eventName, listener) {
-        return this.add(eventName, (listeners) => listeners.splice(0, 0, { listener }));
-    }
-    /**
-     * Adds the **one-time** event {@link listener} to the beginning of the listeners for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns This instance with the event {@link listener} prepended.
-     */
-    prependOnceListener(eventName, listener) {
-        return this.add(eventName, (listeners) => listeners.splice(0, 0, { listener, once: true }));
-    }
-    /**
-     * Removes all event listeners for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @returns This instance with the event listeners removed
-     */
-    removeAllListeners(eventName) {
-        this.events.delete(eventName);
-        return this;
-    }
-    /**
-     * Removes the event {@link listener} for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param listener Event handler function.
-     * @returns This instance with the event {@link listener} removed.
-     */
-    removeListener(eventName, listener) {
-        return this.off(eventName, listener);
-    }
-    /**
-     * Adds the event {@link listener} for the event named {@link eventName}.
-     * @param eventName Name of the event.
-     * @param fn Function responsible for adding the new event handler function.
-     * @returns This instance with event {@link listener} added.
-     */
-    add(eventName, fn) {
-        let listeners = this.events.get(eventName);
-        if (listeners === undefined) {
-            listeners = [];
-            this.events.set(eventName, listeners);
-        }
-        fn(listeners);
-        return this;
-    }
-}
-
-/**
- * Determines whether the specified {@link value} is a {@link RawMessageResponse}.
- * @param value Value.
- * @returns `true` when the value of a {@link RawMessageResponse}; otherwise `false`.
- */
-function isRequest(value) {
-    return isMessage(value, "request") && has(value, "unidirectional", "boolean");
-}
-/**
- * Determines whether the specified {@link value} is a {@link RawMessageResponse}.
- * @param value Value.
- * @returns `true` when the value of a {@link RawMessageResponse; otherwise `false`.
- */
-function isResponse(value) {
-    return isMessage(value, "response") && has(value, "status", "number");
-}
-/**
- * Determines whether the specified {@link value} is a message of type {@link type}.
- * @param value Value.
- * @param type Message type.
- * @returns `true` when the value of a {@link Message} of type {@link type}; otherwise `false`.
- */
-function isMessage(value, type) {
-    // The value should be an object.
-    if (value === undefined || value === null || typeof value !== "object") {
-        return false;
-    }
-    // The value should have a __type property of "response".
-    if (!("__type" in value) || value.__type !== type) {
-        return false;
-    }
-    // The value should should have at least an id, status, and path1.
-    return has(value, "id", "string") && has(value, "path", "string");
-}
-/**
- * Determines whether the specified {@link key} exists in {@link obj}, and is typeof {@link type}.
- * @param obj Object to check.
- * @param key key to check for.
- * @param type Expected type.
- * @returns `true` when the {@link key} exists in the {@link obj}, and is typeof {@link type}.
- */
-function has(obj, key, type) {
-    return key in obj && typeof obj[key] === type;
-}
-
-/**
- * Message responder responsible for responding to a request.
- */
-class MessageResponder {
-    request;
-    proxy;
-    /**
-     * Indicates whether a response has already been sent in relation to the response.
-     */
-    _responded = false;
-    /**
-     * Initializes a new instance of the {@link MessageResponder} class.
-     * @param request The request the response is associated with.
-     * @param proxy Proxy responsible for forwarding the response to the client.
-     */
-    constructor(request, proxy) {
-        this.request = request;
-        this.proxy = proxy;
-    }
-    /**
-     * Indicates whether a response can be sent.
-     * @returns `true` when a response has not yet been set.
-     */
-    get canRespond() {
-        return !this._responded;
-    }
-    /**
-     * Sends a failure response with a status code of `500`.
-     * @param body Optional response body.
-     * @returns Promise fulfilled once the response has been sent.
-     */
-    fail(body) {
-        return this.send(500, body);
-    }
-    /**
-     * Sends the {@link body} as a response with the {@link status}
-     * @param status Response status.
-     * @param body Optional response body.
-     * @returns Promise fulfilled once the response has been sent.
-     */
-    async send(status, body) {
-        if (this.canRespond) {
-            await this.proxy({
-                __type: "response",
-                id: this.request.id,
-                path: this.request.path,
-                body,
-                status,
-            });
-            this._responded = true;
-        }
-    }
-    /**
-     * Sends a success response with a status code of `200`.
-     * @param body Optional response body.
-     * @returns Promise fulfilled once the response has been sent.
-     */
-    success(body) {
-        return this.send(200, body);
-    }
-}
-
-/**
- * Default request timeout.
- */
-const DEFAULT_TIMEOUT = 5000;
-const PUBLIC_PATH_PREFIX = "public:";
-const INTERNAL_PATH_PREFIX = "internal:";
-/**
- * Message gateway responsible for sending, routing, and receiving requests and responses.
- */
-class MessageGateway extends EventEmitter {
-    proxy;
-    actionProvider;
-    /**
-     * Requests with pending responses.
-     */
-    requests = new Map();
-    /**
-     * Registered routes, and their respective handlers.
-     */
-    routes = new EventEmitter();
-    /**
-     * Initializes a new instance of the {@link MessageGateway} class.
-     * @param proxy Proxy capable of sending messages to the plugin / property inspector.
-     * @param actionProvider Action provider responsible for retrieving actions associated with source messages.
-     */
-    constructor(proxy, actionProvider) {
-        super();
-        this.proxy = proxy;
-        this.actionProvider = actionProvider;
-    }
-    /**
-     * Sends the {@link requestOrPath} to the server; the server should be listening on {@link MessageGateway.route}.
-     * @param requestOrPath The request, or the path of the request.
-     * @param bodyOrUndefined Request body, or moot when constructing the request with {@link MessageRequestOptions}.
-     * @returns The response.
-     */
-    async fetch(requestOrPath, bodyOrUndefined) {
-        const id = crypto.randomUUID();
-        const { body, path, timeout = DEFAULT_TIMEOUT, unidirectional = false, } = typeof requestOrPath === "string" ? { body: bodyOrUndefined, path: requestOrPath } : requestOrPath;
-        // Initialize the response handler.
-        const response = new Promise((resolve) => {
-            this.requests.set(id, (res) => {
-                if (res.status !== 408) {
-                    clearTimeout(timeoutMonitor);
-                }
-                resolve(res);
-            });
-        });
-        // Start the timeout, and send the request.
-        const timeoutMonitor = setTimeout(() => this.handleResponse({ __type: "response", id, path, status: 408 }), timeout);
-        const accepted = await this.proxy({
-            __type: "request",
-            body,
-            id,
-            path,
-            unidirectional,
-        });
-        // When the server did not accept the request, return a 406.
-        if (!accepted) {
-            this.handleResponse({ __type: "response", id, path, status: 406 });
-        }
-        return response;
-    }
-    /**
-     * Attempts to process the specified {@link message}.
-     * @param message Message to process.
-     * @returns `true` when the {@link message} was processed by this instance; otherwise `false`.
-     */
-    async process(message) {
-        if (isRequest(message.payload)) {
-            // Server-side handling.
-            const action = this.actionProvider(message);
-            if (await this.handleRequest(action, message.payload)) {
-                return;
-            }
-            this.emit("unhandledRequest", message);
-        }
-        else if (isResponse(message.payload) && this.handleResponse(message.payload)) {
-            // Response handled successfully.
-            return;
-        }
-        this.emit("unhandledMessage", message);
-    }
-    /**
-     * Maps the specified {@link path} to the {@link handler}, allowing for requests from the client.
-     * @param path Path used to identify the route.
-     * @param handler Handler to be invoked when the request is received.
-     * @param options Optional routing configuration.
-     * @returns Disposable capable of removing the route handler.
-     */
-    route(path, handler, options) {
-        options = { filter: () => true, ...options };
-        return this.routes.disposableOn(path, async (ev) => {
-            if (options?.filter && options.filter(ev.request.action)) {
-                await ev.routed();
-                try {
-                    // Invoke the handler; when data was returned, propagate it as part of the response (if there wasn't already a response).
-                    const result = await handler(ev.request, ev.responder);
-                    if (result !== undefined) {
-                        await ev.responder.send(200, result);
-                    }
-                }
-                catch (err) {
-                    // Respond with an error before throwing.
-                    await ev.responder.send(500);
-                    throw err;
-                }
-            }
-        });
-    }
-    /**
-     * Handles inbound requests.
-     * @param action Action associated with the request.
-     * @param source The request.
-     * @returns `true` when the request was handled; otherwise `false`.
-     */
-    async handleRequest(action, source) {
-        const responder = new MessageResponder(source, this.proxy);
-        const request = {
-            action,
-            path: source.path,
-            unidirectional: source.unidirectional,
-            body: source.body,
-        };
-        // Get handlers of the path, and invoke them; filtering is applied by the handlers themselves
-        let routed = false;
-        const routes = this.routes.listeners(source.path);
-        for (const route of routes) {
-            await route({
-                request,
-                responder,
-                routed: async () => {
-                    // Flags the path as handled, sending an immediate 202 if the request was unidirectional.
-                    if (request.unidirectional) {
-                        await responder.send(202);
-                    }
-                    routed = true;
-                },
-            });
-        }
-        // The request was successfully routed, so fallback to a 200.
-        if (routed) {
-            await responder.send(200);
-            return true;
-        }
-        // When there were no applicable routes, return not-handled.
-        await responder.send(501);
-        return false;
-    }
-    /**
-     * Handles inbound response.
-     * @param res The response.
-     * @returns `true` when the response was handled; otherwise `false`.
-     */
-    handleResponse(res) {
-        const handler = this.requests.get(res.id);
-        this.requests.delete(res.id);
-        // Determine if there is a request pending a response.
-        if (handler) {
-            handler(new MessageResponse(res));
-            return true;
-        }
-        return false;
-    }
-}
-/**
- * Message response, received from the server.
- */
-class MessageResponse {
-    /**
-     * Body of the response.
-     */
-    body;
-    /**
-     * Status of the response.
-     * - `200` the request was successful.
-     * - `202` the request was unidirectional, and does not have a response.
-     * - `406` the request could not be accepted by the server.
-     * - `408` the request timed-out.
-     * - `500` the request failed.
-     * - `501` the request is not implemented by the server, and could not be fulfilled.
-     */
-    status;
-    /**
-     * Initializes a new instance of the {@link MessageResponse} class.
-     * @param res The status code, or the response.
-     */
-    constructor(res) {
-        this.body = res.body;
-        this.status = res.status;
-    }
-    /**
-     * Indicates whether the request was successful.
-     * @returns `true` when the status indicates a success; otherwise `false`.
-     */
-    get ok() {
-        return this.status >= 200 && this.status < 300;
-    }
-}
-
-const LOGGER_WRITE_PATH = `${INTERNAL_PATH_PREFIX}logger.write`;
-/**
- * Registers a route handler on the router, propagating any log entries to the specified logger for writing.
- * @param router Router to receive inbound log entries on.
- * @param logger Logger responsible for logging log entries.
- */
-function registerCreateLogEntryRoute(router, logger) {
-    router.route(LOGGER_WRITE_PATH, (req, res) => {
-        if (req.body === undefined) {
-            return res.fail();
-        }
-        const { level, message, scope } = req.body;
-        if (level === undefined) {
-            return res.fail();
-        }
-        logger.write({ level, data: [message], scope });
-        return res.success();
-    });
-}
-
-/**
- * Provides information for events received from Stream Deck.
- */
-class Event {
-    /**
-     * Event that occurred.
-     */
-    type;
-    /**
-     * Initializes a new instance of the {@link Event} class.
-     * @param source Source of the event, i.e. the original message from Stream Deck.
-     */
-    constructor(source) {
-        this.type = source.event;
-    }
-}
-
-/**
- * Provides information for an event relating to an action.
- */
-class ActionWithoutPayloadEvent extends Event {
-    action;
-    /**
-     * Initializes a new instance of the {@link ActionWithoutPayloadEvent} class.
-     * @param action Action that raised the event.
-     * @param source Source of the event, i.e. the original message from Stream Deck.
-     */
-    constructor(action, source) {
-        super(source);
-        this.action = action;
-    }
-}
-/**
- * Provides information for an event relating to an action.
- */
-class ActionEvent extends ActionWithoutPayloadEvent {
-    /**
-     * Provides additional information about the event that occurred, e.g. how many `ticks` the dial was rotated, the current `state` of the action, etc.
-     */
-    payload;
-    /**
-     * Initializes a new instance of the {@link ActionEvent} class.
-     * @param action Action that raised the event.
-     * @param source Source of the event, i.e. the original message from Stream Deck.
-     */
-    constructor(action, source) {
-        super(action, source);
-        this.payload = source.payload;
-    }
-}
-
-/**
- * Provides event information for when the plugin received the global settings.
- */
-class DidReceiveGlobalSettingsEvent extends Event {
-    /**
-     * Settings associated with the event.
-     */
-    settings;
-    /**
-     * Initializes a new instance of the {@link DidReceiveGlobalSettingsEvent} class.
-     * @param source Source of the event, i.e. the original message from Stream Deck.
-     */
-    constructor(source) {
-        super(source);
-        this.settings = source.payload.settings;
-    }
-}
-
-/**
- * Provides a wrapper around a value that is lazily instantiated.
- */
-class Lazy {
-    /**
-     * Private backing field for {@link Lazy.value}.
-     */
-    #value = undefined;
-    /**
-     * Factory responsible for instantiating the value.
-     */
-    #valueFactory;
-    /**
-     * Initializes a new instance of the {@link Lazy} class.
-     * @param valueFactory The factory responsible for instantiating the value.
-     */
-    constructor(valueFactory) {
-        this.#valueFactory = valueFactory;
-    }
-    /**
-     * Gets the value.
-     * @returns The value.
-     */
-    get value() {
-        if (this.#value === undefined) {
-            this.#value = this.#valueFactory();
-        }
-        return this.#value;
-    }
-}
-
-/**
- * Wraps an underlying Promise{T}, exposing the resolve and reject delegates as methods, allowing for it to be awaited, resolved, or rejected externally.
- */
-class PromiseCompletionSource {
-    /**
-     * The underlying promise that this instance is managing.
-     */
-    _promise;
-    /**
-     * Delegate used to reject the promise.
-     */
-    _reject;
-    /**
-     * Delegate used to resolve the promise.
-     */
-    _resolve;
-    /**
-     * Wraps an underlying Promise{T}, exposing the resolve and reject delegates as methods, allowing for it to be awaited, resolved, or rejected externally.
-     */
-    constructor() {
-        this._promise = new Promise((resolve, reject) => {
-            this._resolve = resolve;
-            this._reject = reject;
-        });
-    }
-    /**
-     * Gets the underlying promise being managed by this instance.
-     * @returns The promise.
-     */
-    get promise() {
-        return this._promise;
-    }
-    /**
-     * Rejects the promise, causing any awaited calls to throw.
-     * @param reason The reason for rejecting the promise.
-     */
-    setException(reason) {
-        if (this._reject) {
-            this._reject(reason);
-        }
-    }
-    /**
-     * Sets the result of the underlying promise, allowing any awaited calls to continue invocation.
-     * @param value The value to resolve the promise with.
-     */
-    setResult(value) {
-        if (this._resolve) {
-            this._resolve(value);
-        }
-    }
-}
 
 /**
  * Provides information for a version, as parsed from a string denoted as a collection of numbers separated by a period, for example `1.45.2`, `4.0.2.13098`. Parsing is opinionated
@@ -6188,6 +5886,314 @@ class Version {
     }
 }
 
+/**
+ * Provides a {@link LogTarget} that logs to the console.
+ */
+class ConsoleTarget {
+    /**
+     * @inheritdoc
+     */
+    write(entry) {
+        switch (entry.level) {
+            case "error":
+                console.error(...entry.data);
+                break;
+            case "warn":
+                console.warn(...entry.data);
+                break;
+            default:
+                console.log(...entry.data);
+        }
+    }
+}
+
+// Remove any dependencies on node.
+const EOL = "\n";
+/**
+ * Creates a new string log entry formatter.
+ * @param opts Options that defines the type for the formatter.
+ * @returns The string {@link LogEntryFormatter}.
+ */
+function stringFormatter(opts) {
+    {
+        return (entry) => {
+            const { data, level, scope } = entry;
+            let prefix = `${new Date().toISOString()} ${level.toUpperCase().padEnd(5)} `;
+            if (scope) {
+                prefix += `${scope}: `;
+            }
+            return `${prefix}${reduce(data)}`;
+        };
+    }
+}
+/**
+ * Stringifies the provided data parameters that make up the log entry.
+ * @param data Data parameters.
+ * @returns The data represented as a single `string`.
+ */
+function reduce(data) {
+    let result = "";
+    let previousWasError = false;
+    for (const value of data) {
+        // When the value is an error, write the stack.
+        if (typeof value === "object" && value instanceof Error) {
+            result += `${EOL}${value.stack}`;
+            previousWasError = true;
+            continue;
+        }
+        // When the previous was an error, write a new line.
+        if (previousWasError) {
+            result += EOL;
+            previousWasError = false;
+        }
+        result += typeof value === "object" ? JSON.stringify(value) : value;
+        result += " ";
+    }
+    return result.trimEnd();
+}
+
+/* eslint-disable @typescript-eslint/sort-type-constituents */
+/**
+ * Gets the priority of the specified log level as a number; low numbers signify a higher priority.
+ * @param level Log level.
+ * @returns The priority as a number.
+ */
+function defcon(level) {
+    switch (level) {
+        case "error":
+            return 0;
+        case "warn":
+            return 1;
+        case "info":
+            return 2;
+        case "debug":
+            return 3;
+        case "trace":
+        default:
+            return 4;
+    }
+}
+
+/**
+ * Logger capable of forwarding messages to a {@link LogTarget}.
+ */
+class Logger {
+    /**
+     * Backing field for the {@link Logger.level}.
+     */
+    #level;
+    /**
+     * Options that define the loggers behavior.
+     */
+    #options;
+    /**
+     * Scope associated with this {@link Logger}.
+     */
+    #scope;
+    /**
+     * Initializes a new instance of the {@link Logger} class.
+     * @param opts Options that define the loggers behavior.
+     */
+    constructor(opts) {
+        this.#options = { minimumLevel: "trace", ...opts };
+        this.#scope = this.#options.scope === undefined || this.#options.scope.trim() === "" ? "" : this.#options.scope;
+        if (typeof this.#options.level !== "function") {
+            this.setLevel(this.#options.level);
+        }
+    }
+    /**
+     * Gets the {@link LogLevel}.
+     * @returns The {@link LogLevel}.
+     */
+    get level() {
+        if (this.#level !== undefined) {
+            return this.#level;
+        }
+        return typeof this.#options.level === "function" ? this.#options.level() : this.#options.level;
+    }
+    /**
+     * Creates a scoped logger with the given {@link scope}; logs created by scoped-loggers include their scope to enable their source to be easily identified.
+     * @param scope Value that represents the scope of the new logger.
+     * @returns The scoped logger, or this instance when {@link scope} is not defined.
+     */
+    createScope(scope) {
+        scope = scope.trim();
+        if (scope === "") {
+            return this;
+        }
+        return new Logger({
+            ...this.#options,
+            level: () => this.level,
+            scope: this.#options.scope ? `${this.#options.scope}->${scope}` : scope,
+        });
+    }
+    /**
+     * Writes the arguments as a debug log entry.
+     * @param data Message or data to log.
+     * @returns This instance for chaining.
+     */
+    debug(...data) {
+        return this.write({ level: "debug", data, scope: this.#scope });
+    }
+    /**
+     * Writes the arguments as error log entry.
+     * @param data Message or data to log.
+     * @returns This instance for chaining.
+     */
+    error(...data) {
+        return this.write({ level: "error", data, scope: this.#scope });
+    }
+    /**
+     * Writes the arguments as an info log entry.
+     * @param data Message or data to log.
+     * @returns This instance for chaining.
+     */
+    info(...data) {
+        return this.write({ level: "info", data, scope: this.#scope });
+    }
+    /**
+     * Sets the log-level that determines which logs should be written. The specified level will be inherited by all scoped loggers unless they have log-level explicitly defined.
+     * @param level The log-level that determines which logs should be written; when `undefined`, the level will be inherited from the parent logger, or default to the environment level.
+     * @returns This instance for chaining.
+     */
+    setLevel(level) {
+        if (level !== undefined && defcon(level) > defcon(this.#options.minimumLevel)) {
+            this.#level = "info";
+        }
+        else {
+            this.#level = level;
+        }
+        return this;
+    }
+    /**
+     * Writes the arguments as a trace log entry.
+     * @param data Message or data to log.
+     * @returns This instance for chaining.
+     */
+    trace(...data) {
+        return this.write({ level: "trace", data, scope: this.#scope });
+    }
+    /**
+     * Writes the arguments as a warning log entry.
+     * @param data Message or data to log.
+     * @returns This instance for chaining.
+     */
+    warn(...data) {
+        return this.write({ level: "warn", data, scope: this.#scope });
+    }
+    /**
+     * Writes the log entry.
+     * @param entry Log entry to write.
+     * @returns This instance for chaining.
+     */
+    write(entry) {
+        if (defcon(entry.level) <= defcon(this.level)) {
+            this.#options.targets.forEach((t) => t.write(entry));
+        }
+        return this;
+    }
+}
+
+/**
+ * Provides a {@link LogTarget} capable of logging to a local file system.
+ */
+class FileTarget {
+    /**
+     * File path where logs will be written.
+     */
+    #filePath;
+    /**
+     * Options that defines how logs should be written to the local file system.
+     */
+    #options;
+    /**
+     * Current size of the logs that have been written to the {@link FileTarget.#filePath}.
+     */
+    #size = 0;
+    /**
+     * Initializes a new instance of the {@link FileTarget} class.
+     * @param options Options that defines how logs should be written to the local file system.
+     */
+    constructor(options) {
+        this.#options = options;
+        this.#filePath = this.getLogFilePath();
+        this.reIndex();
+    }
+    /**
+     * @inheritdoc
+     */
+    write(entry) {
+        const fd = fs.openSync(this.#filePath, "a");
+        try {
+            const msg = this.#options.format(entry);
+            fs.writeSync(fd, msg + "\n");
+            this.#size += msg.length;
+        }
+        finally {
+            fs.closeSync(fd);
+        }
+        if (this.#size >= this.#options.maxSize) {
+            this.reIndex();
+            this.#size = 0;
+        }
+    }
+    /**
+     * Gets the file path to an indexed log file.
+     * @param index Optional index of the log file to be included as part of the file name.
+     * @returns File path that represents the indexed log file.
+     */
+    getLogFilePath(index = 0) {
+        return path.join(this.#options.dest, `${this.#options.fileName}.${index}.log`);
+    }
+    /**
+     * Gets the log files associated with this file target, including past and present.
+     * @returns Log file entries.
+     */
+    getLogFiles() {
+        const regex = /^\.(\d+)\.log$/;
+        return fs
+            .readdirSync(this.#options.dest, { withFileTypes: true })
+            .reduce((prev, entry) => {
+            if (entry.isDirectory() || entry.name.indexOf(this.#options.fileName) < 0) {
+                return prev;
+            }
+            const match = entry.name.substring(this.#options.fileName.length).match(regex);
+            if (match?.length !== 2) {
+                return prev;
+            }
+            prev.push({
+                path: path.join(this.#options.dest, entry.name),
+                index: parseInt(match[1]),
+            });
+            return prev;
+        }, [])
+            .sort(({ index: a }, { index: b }) => {
+            return a < b ? -1 : a > b ? 1 : 0;
+        });
+    }
+    /**
+     * Re-indexes the existing log files associated with this file target, removing old log files whose index exceeds the {@link FileTargetOptions.maxFileCount}, and renaming the
+     * remaining log files, leaving index "0" free for a new log file.
+     */
+    reIndex() {
+        // When the destination directory is new, create it, and return.
+        if (!fs.existsSync(this.#options.dest)) {
+            fs.mkdirSync(this.#options.dest);
+            return;
+        }
+        const logFiles = this.getLogFiles();
+        for (let i = logFiles.length - 1; i >= 0; i--) {
+            const log = logFiles[i];
+            if (i >= this.#options.maxFileCount - 1) {
+                fs.rmSync(log.path);
+            }
+            else {
+                fs.renameSync(log.path, this.getLogFilePath(i + 1));
+            }
+        }
+    }
+}
+
 let __isDebugMode = undefined;
 /**
  * Determines whether the current plugin is running in a debug environment; this is determined by the command-line arguments supplied to the plugin by Stream. Specifically, the result
@@ -6213,103 +6219,6 @@ function getPluginUUID() {
     return suffixIndex < 0 ? name : name.substring(0, suffixIndex);
 }
 
-/**
- * Provides a {@link LogTarget} capable of logging to a local file system.
- */
-class FileTarget {
-    options;
-    /**
-     * File path where logs will be written.
-     */
-    filePath;
-    /**
-     * Current size of the logs that have been written to the {@link FileTarget.filePath}.
-     */
-    size = 0;
-    /**
-     * Initializes a new instance of the {@link FileTarget} class.
-     * @param options Options that defines how logs should be written to the local file system.
-     */
-    constructor(options) {
-        this.options = options;
-        this.filePath = this.getLogFilePath();
-        this.reIndex();
-    }
-    /**
-     * @inheritdoc
-     */
-    write(entry) {
-        const fd = fs.openSync(this.filePath, "a");
-        try {
-            const msg = this.options.format(entry);
-            fs.writeSync(fd, msg + "\n");
-            this.size += msg.length;
-        }
-        finally {
-            fs.closeSync(fd);
-        }
-        if (this.size >= this.options.maxSize) {
-            this.reIndex();
-            this.size = 0;
-        }
-    }
-    /**
-     * Gets the file path to an indexed log file.
-     * @param index Optional index of the log file to be included as part of the file name.
-     * @returns File path that represents the indexed log file.
-     */
-    getLogFilePath(index = 0) {
-        return path.join(this.options.dest, `${this.options.fileName}.${index}.log`);
-    }
-    /**
-     * Gets the log files associated with this file target, including past and present.
-     * @returns Log file entries.
-     */
-    getLogFiles() {
-        const regex = /^\.(\d+)\.log$/;
-        return fs
-            .readdirSync(this.options.dest, { withFileTypes: true })
-            .reduce((prev, entry) => {
-            if (entry.isDirectory() || entry.name.indexOf(this.options.fileName) < 0) {
-                return prev;
-            }
-            const match = entry.name.substring(this.options.fileName.length).match(regex);
-            if (match?.length !== 2) {
-                return prev;
-            }
-            prev.push({
-                path: path.join(this.options.dest, entry.name),
-                index: parseInt(match[1]),
-            });
-            return prev;
-        }, [])
-            .sort(({ index: a }, { index: b }) => {
-            return a < b ? -1 : a > b ? 1 : 0;
-        });
-    }
-    /**
-     * Re-indexes the existing log files associated with this file target, removing old log files whose index exceeds the {@link FileTargetOptions.maxFileCount}, and renaming the
-     * remaining log files, leaving index "0" free for a new log file.
-     */
-    reIndex() {
-        // When the destination directory is new, create it, and return.
-        if (!fs.existsSync(this.options.dest)) {
-            fs.mkdirSync(this.options.dest);
-            return;
-        }
-        const logFiles = this.getLogFiles();
-        for (let i = logFiles.length - 1; i >= 0; i--) {
-            const log = logFiles[i];
-            if (i >= this.options.maxFileCount - 1) {
-                fs.rmSync(log.path);
-            }
-            else {
-                fs.renameSync(log.path, this.getLogFilePath(i + 1));
-            }
-        }
-    }
-}
-
 // Log all entires to a log file.
 const fileTarget = new FileTarget({
     dest: path.join(cwd(), "logs"),
@@ -6327,8 +6236,8 @@ if (isDebugMode()) {
  * Logger responsible for capturing log messages.
  */
 const logger = new Logger({
-    level: isDebugMode() ? LogLevel.DEBUG : LogLevel.INFO,
-    minimumLevel: isDebugMode() ? LogLevel.TRACE : LogLevel.DEBUG,
+    level: isDebugMode() ? "debug" : "info",
+    minimumLevel: isDebugMode() ? "trace" : "debug",
     targets,
 });
 process.once("uncaughtException", (err) => logger.error("Process encountered uncaught exception", err));
@@ -6352,7 +6261,7 @@ class Connection extends EventEmitter {
     /**
      * Underlying web socket connection.
      */
-    connection = new PromiseCompletionSource();
+    connection = withResolvers();
     /**
      * Logger scoped to the connection.
      */
@@ -6387,7 +6296,7 @@ class Connection extends EventEmitter {
                     uuid: this.registrationParameters.pluginUUID,
                 }));
                 // Web socket established a connection with the Stream Deck and the plugin was registered.
-                this.connection.setResult(webSocket);
+                this.connection.resolve(webSocket);
                 this.emit("connected", this.registrationParameters.info);
             };
         }
@@ -6478,338 +6387,103 @@ class Connection extends EventEmitter {
 }
 const connection = new Connection();
 
-let manifest$1;
-let softwareMinimumVersion;
 /**
- * Gets the minimum version that this plugin required, as defined within the manifest.
- * @returns Minimum required version.
+ * Provides information for events received from Stream Deck.
  */
-function getSoftwareMinimumVersion() {
-    return (softwareMinimumVersion ??= new Version(getManifest().Software.MinimumVersion));
+class Event {
+    /**
+     * Event that occurred.
+     */
+    type;
+    /**
+     * Initializes a new instance of the {@link Event} class.
+     * @param source Source of the event, i.e. the original message from Stream Deck.
+     */
+    constructor(source) {
+        this.type = source.event;
+    }
+}
+
+/**
+ * Provides information for an event relating to an action.
+ */
+class ActionWithoutPayloadEvent extends Event {
+    action;
+    /**
+     * Initializes a new instance of the {@link ActionWithoutPayloadEvent} class.
+     * @param action Action that raised the event.
+     * @param source Source of the event, i.e. the original message from Stream Deck.
+     */
+    constructor(action, source) {
+        super(source);
+        this.action = action;
+    }
 }
 /**
- * Gets the manifest associated with the plugin.
- * @returns The manifest.
+ * Provides information for an event relating to an action.
  */
-function getManifest() {
-    return (manifest$1 ??= readManifest());
+class ActionEvent extends ActionWithoutPayloadEvent {
+    /**
+     * Provides additional information about the event that occurred, e.g. how many `ticks` the dial was rotated, the current `state` of the action, etc.
+     */
+    payload;
+    /**
+     * Initializes a new instance of the {@link ActionEvent} class.
+     * @param action Action that raised the event.
+     * @param source Source of the event, i.e. the original message from Stream Deck.
+     */
+    constructor(action, source) {
+        super(action, source);
+        this.payload = source.payload;
+    }
 }
-/**
- * Reads the manifest associated with the plugin from the `manifest.json` file.
- * @returns The manifest.
- */
-function readManifest() {
+
+const manifest$1 = new Lazy(() => {
     const path = join(process.cwd(), "manifest.json");
     if (!existsSync(path)) {
         throw new Error("Failed to read manifest.json as the file does not exist.");
     }
-    return JSON.parse(readFileSync(path, {
-        encoding: "utf-8",
-        flag: "r",
-    }).toString());
-}
-
-/**
- * Provides a read-only iterable collection of items that also acts as a partial polyfill for iterator helpers.
- */
-class Enumerable {
-    /**
-     * Backing function responsible for providing the iterator of items.
-     */
-    #items;
-    /**
-     * Backing function for {@link Enumerable.length}.
-     */
-    #length;
-    /**
-     * Captured iterator from the underlying iterable; used to fulfil {@link IterableIterator} methods.
-     */
-    #iterator;
-    /**
-     * Initializes a new instance of the {@link Enumerable} class.
-     * @param source Source that contains the items.
-     * @returns The enumerable.
-     */
-    constructor(source) {
-        if (source instanceof Enumerable) {
-            // Enumerable
-            this.#items = source.#items;
-            this.#length = source.#length;
-        }
-        else if (Array.isArray(source)) {
-            // Array
-            this.#items = () => source.values();
-            this.#length = () => source.length;
-        }
-        else if (source instanceof Map || source instanceof Set) {
-            // Map or Set
-            this.#items = () => source.values();
-            this.#length = () => source.size;
+    try {
+        return JSON.parse(readFileSync(path, {
+            encoding: "utf-8",
+            flag: "r",
+        }).toString());
+    }
+    catch (e) {
+        if (e instanceof SyntaxError) {
+            return null;
         }
         else {
-            // IterableIterator delegate
-            this.#items = source;
-            this.#length = () => {
-                let i = 0;
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                for (const _ of this) {
-                    i++;
-                }
-                return i;
-            };
+            throw e;
         }
     }
-    /**
-     * Gets the number of items in the enumerable.
-     * @returns The number of items.
-     */
-    get length() {
-        return this.#length();
+});
+const softwareMinimumVersion = new Lazy(() => {
+    if (manifest$1.value === null) {
+        return null;
     }
-    /**
-     * Gets the iterator for the enumerable.
-     * @yields The items.
-     */
-    *[Symbol.iterator]() {
-        for (const item of this.#items()) {
-            yield item;
-        }
-    }
-    /**
-     * Transforms each item within this iterator to an indexed pair, with each pair represented as an array.
-     * @returns An iterator of indexed pairs.
-     */
-    asIndexedPairs() {
-        return new Enumerable(function* () {
-            let i = 0;
-            for (const item of this) {
-                yield [i++, item];
-            }
-        }.bind(this));
-    }
-    /**
-     * Returns an iterator with the first items dropped, up to the specified limit.
-     * @param limit The number of elements to drop from the start of the iteration.
-     * @returns An iterator of items after the limit.
-     */
-    drop(limit) {
-        if (isNaN(limit) || limit < 0) {
-            throw new RangeError("limit must be 0, or a positive number");
-        }
-        return new Enumerable(function* () {
-            let i = 0;
-            for (const item of this) {
-                if (i++ >= limit) {
-                    yield item;
-                }
-            }
-        }.bind(this));
-    }
-    /**
-     * Determines whether all items satisfy the specified predicate.
-     * @param predicate Function that determines whether each item fulfils the predicate.
-     * @returns `true` when all items satisfy the predicate; otherwise `false`.
-     */
-    every(predicate) {
-        for (const item of this) {
-            if (!predicate(item)) {
-                return false;
-            }
-        }
-        return true;
-    }
-    /**
-     * Returns an iterator of items that meet the specified predicate..
-     * @param predicate Function that determines which items to filter.
-     * @returns An iterator of filtered items.
-     */
-    filter(predicate) {
-        return new Enumerable(function* () {
-            for (const item of this) {
-                if (predicate(item)) {
-                    yield item;
-                }
-            }
-        }.bind(this));
-    }
-    /**
-     * Finds the first item that satisfies the specified predicate.
-     * @param predicate Predicate to match items against.
-     * @returns The first item that satisfied the predicate; otherwise `undefined`.
-     */
-    find(predicate) {
-        for (const item of this) {
-            if (predicate(item)) {
-                return item;
-            }
-        }
-    }
-    /**
-     * Finds the last item that satisfies the specified predicate.
-     * @param predicate Predicate to match items against.
-     * @returns The first item that satisfied the predicate; otherwise `undefined`.
-     */
-    findLast(predicate) {
-        let result = undefined;
-        for (const item of this) {
-            if (predicate(item)) {
-                result = item;
-            }
-        }
-        return result;
-    }
-    /**
-     * Returns an iterator containing items transformed using the specified mapper function.
-     * @param mapper Function responsible for transforming each item.
-     * @returns An iterator of transformed items.
-     */
-    flatMap(mapper) {
-        return new Enumerable(function* () {
-            for (const item of this) {
-                for (const mapped of mapper(item)) {
-                    yield mapped;
-                }
-            }
-        }.bind(this));
-    }
-    /**
-     * Iterates over each item, and invokes the specified function.
-     * @param fn Function to invoke against each item.
-     */
-    forEach(fn) {
-        for (const item of this) {
-            fn(item);
-        }
-    }
-    /**
-     * Determines whether the search item exists in the collection exists.
-     * @param search Item to search for.
-     * @returns `true` when the item was found; otherwise `false`.
-     */
-    includes(search) {
-        return this.some((item) => item === search);
-    }
-    /**
-     * Returns an iterator of mapped items using the mapper function.
-     * @param mapper Function responsible for mapping the items.
-     * @returns An iterator of mapped items.
-     */
-    map(mapper) {
-        return new Enumerable(function* () {
-            for (const item of this) {
-                yield mapper(item);
-            }
-        }.bind(this));
-    }
-    /**
-     * Captures the underlying iterable, if it is not already captured, and gets the next item in the iterator.
-     * @param args Optional values to send to the generator.
-     * @returns An iterator result of the current iteration; when `done` is `false`, the current `value` is provided.
-     */
-    next(...args) {
-        this.#iterator ??= this.#items();
-        const result = this.#iterator.next(...args);
-        if (result.done) {
-            this.#iterator = undefined;
-        }
-        return result;
-    }
-    /**
-     * Applies the accumulator function to each item, and returns the result.
-     * @param accumulator Function responsible for accumulating all items within the collection.
-     * @param initial Initial value supplied to the accumulator.
-     * @returns Result of accumulating each value.
-     */
-    reduce(accumulator, initial) {
-        if (this.length === 0) {
-            if (initial === undefined) {
-                throw new TypeError("Reduce of empty enumerable with no initial value.");
-            }
-            return initial;
-        }
-        let result = initial;
-        for (const item of this) {
-            if (result === undefined) {
-                result = item;
-            }
-            else {
-                result = accumulator(result, item);
-            }
-        }
-        return result;
-    }
-    /**
-     * Acts as if a `return` statement is inserted in the generator's body at the current suspended position.
-     *
-     * Please note, in the context of an {@link Enumerable}, calling {@link Enumerable.return} will clear the captured iterator,
-     * if there is one. Subsequent calls to {@link Enumerable.next} will result in re-capturing the underlying iterable, and
-     * yielding items from the beginning.
-     * @param value Value to return.
-     * @returns The value as an iterator result.
-     */
-    return(value) {
-        this.#iterator = undefined;
-        return { done: true, value };
-    }
-    /**
-     * Determines whether an item in the collection exists that satisfies the specified predicate.
-     * @param predicate Function used to search for an item.
-     * @returns `true` when the item was found; otherwise `false`.
-     */
-    some(predicate) {
-        for (const item of this) {
-            if (predicate(item)) {
-                return true;
-            }
-        }
-        return false;
-    }
-    /**
-     * Returns an iterator with the items, from 0, up to the specified limit.
-     * @param limit Limit of items to take.
-     * @returns An iterator of items from 0 to the limit.
-     */
-    take(limit) {
-        if (isNaN(limit) || limit < 0) {
-            throw new RangeError("limit must be 0, or a positive number");
-        }
-        return new Enumerable(function* () {
-            let i = 0;
-            for (const item of this) {
-                if (i++ < limit) {
-                    yield item;
-                }
-            }
-        }.bind(this));
-    }
-    /**
-     * Acts as if a `throw` statement is inserted in the generator's body at the current suspended position.
-     * @param e Error to throw.
-     */
-    throw(e) {
-        throw e;
-    }
-    /**
-     * Converts this iterator to an array.
-     * @returns The array of items from this iterator.
-     */
-    toArray() {
-        return Array.from(this);
-    }
-    /**
-     * Converts this iterator to serializable collection.
-     * @returns The serializable collection of items.
-     */
-    toJSON() {
-        return this.toArray();
-    }
-    /**
-     * Converts this iterator to a string.
-     * @returns The string.
-     */
-    toString() {
-        return `${this.toArray()}`;
-    }
+    return new Version(manifest$1.value.Software.MinimumVersion);
+});
+/**
+ * Gets the SDK version that the plugin requires.
+ * @returns SDK version; otherwise `null` when the plugin is DRM protected.
+ */
+function getSDKVersion() {
+    return manifest$1.value?.SDKVersion ?? null;
+}
+/**
+ * Gets the minimum version that the plugin requires.
+ * @returns Minimum required version; otherwise `null` when the plugin is DRM protected.
+ */
+function getSoftwareMinimumVersion() {
+    return softwareMinimumVersion.value;
+}
+/**
+ * Gets the manifest associated with the plugin.
+ * @returns The manifest; otherwise `null` when the plugin is DRM protected.
+ */
+function getManifest() {
+    return manifest$1.value;
 }
 
 const __items$1 = new Map();
@@ -6960,6 +6634,24 @@ class DeepLinkURL {
 }
 
 /**
+ * Provides event information for when the plugin received the global settings.
+ */
+class DidReceiveGlobalSettingsEvent extends Event {
+    /**
+     * Settings associated with the event.
+     */
+    settings;
+    /**
+     * Initializes a new instance of the {@link DidReceiveGlobalSettingsEvent} class.
+     * @param source Source of the event, i.e. the original message from Stream Deck.
+     */
+    constructor(source) {
+        super(source);
+        this.settings = source.payload.settings;
+    }
+}
+
+/**
  * Provides information for an event triggered by a message being sent to the plugin, from the property inspector.
  */
 class SendToPluginEvent extends Event {
@@ -6981,191 +6673,179 @@ class SendToPluginEvent extends Event {
 }
 
 /**
- * Gets the global settings associated with the plugin. Use in conjunction with {@link setGlobalSettings}.
- * @template T The type of global settings associated with the plugin.
- * @returns Promise containing the plugin's global settings.
+ * Validates the `SDKVersion` within the manifest fulfils the minimum required version for the specified
+ * feature; when the version is not fulfilled, an error is thrown with the feature formatted into the message.
+ * @param minimumVersion Minimum required SDKVersion.
+ * @param feature Feature that requires the version.
  */
-function getGlobalSettings() {
-    return new Promise((resolve) => {
-        connection.once("didReceiveGlobalSettings", (ev) => resolve(ev.payload.settings));
-        connection.send({
-            event: "getGlobalSettings",
-            context: connection.registrationParameters.pluginUUID,
-        });
-    });
-}
-/**
- * Occurs when the global settings are requested using {@link getGlobalSettings}, or when the the global settings were updated by the property inspector.
- * @template T The type of settings associated with the action.
- * @param listener Function to be invoked when the event occurs.
- * @returns A disposable that, when disposed, removes the listener.
- */
-function onDidReceiveGlobalSettings(listener) {
-    return connection.disposableOn("didReceiveGlobalSettings", (ev) => listener(new DidReceiveGlobalSettingsEvent(ev)));
-}
-/**
- * Occurs when the settings associated with an action instance are requested using {@link Action.getSettings}, or when the the settings were updated by the property inspector.
- * @template T The type of settings associated with the action.
- * @param listener Function to be invoked when the event occurs.
- * @returns A disposable that, when disposed, removes the listener.
- */
-function onDidReceiveSettings(listener) {
-    return connection.disposableOn("didReceiveSettings", (ev) => {
-        const action = actionStore.getActionById(ev.context);
-        if (action) {
-            listener(new ActionEvent(action, ev));
-        }
-    });
-}
-/**
- * Sets the global {@link settings} associated the plugin. **Note**, these settings are only available to this plugin, and should be used to persist information securely. Use in
- * conjunction with {@link getGlobalSettings}.
- * @param settings Settings to save.
- * @returns `Promise` resolved when the global `settings` are sent to Stream Deck.
- * @example
- * streamDeck.settings.setGlobalSettings({
- *   apiKey,
- *   connectedDate: new Date()
- * })
- */
-function setGlobalSettings(settings) {
-    return connection.send({
-        event: "setGlobalSettings",
-        context: connection.registrationParameters.pluginUUID,
-        payload: settings,
-    });
-}
-
-var settings = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    getGlobalSettings: getGlobalSettings,
-    onDidReceiveGlobalSettings: onDidReceiveGlobalSettings,
-    onDidReceiveSettings: onDidReceiveSettings,
-    setGlobalSettings: setGlobalSettings
-});
-
-/**
- * Property inspector providing information about its context, and functions for sending and fetching messages.
- */
-class PropertyInspector {
-    router;
-    /**
-     * Action associated with the property inspector
-     */
-    action;
-    /**
-     * Initializes a new instance of the {@link PropertyInspector} class.
-     * @param router Router responsible for fetching requests.
-     * @param source Source the property inspector is associated with.
-     */
-    constructor(router, source) {
-        this.router = router;
-        this.action = actionStore.getActionById(source.context);
+function requiresSDKVersion(minimumVersion, feature) {
+    const sdkVersion = getSDKVersion();
+    if (sdkVersion !== null && minimumVersion > sdkVersion) {
+        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires manifest SDK version ${minimumVersion} or higher, but found version ${sdkVersion}; please update the "SDKVersion" in the plugin's manifest to ${minimumVersion} or higher.`);
     }
+}
+/**
+ * Validates the {@link streamDeckVersion} and manifest's `Software.MinimumVersion` are at least the {@link minimumVersion};
+ * when the version is not fulfilled, an error is thrown with the {@link feature} formatted into the message.
+ * @param minimumVersion Minimum required version.
+ * @param streamDeckVersion Actual application version.
+ * @param feature Feature that requires the version.
+ */
+function requiresVersion(minimumVersion, streamDeckVersion, feature) {
+    const required = {
+        major: Math.floor(minimumVersion),
+        minor: Number(minimumVersion.toString().split(".").at(1) ?? 0), // Account for JavaScript's floating point precision.
+        patch: 0,
+        build: 0,
+    };
+    if (streamDeckVersion.compareTo(required) === -1) {
+        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher, but current version is ${streamDeckVersion.major}.${streamDeckVersion.minor}; please update Stream Deck and the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
+    }
+    const softwareMinimumVersion = getSoftwareMinimumVersion();
+    if (softwareMinimumVersion !== null && softwareMinimumVersion.compareTo(required) === -1) {
+        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher; please update the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
+    }
+}
+
+let __useExperimentalMessageIdentifiers = false;
+const settings = {
     /**
-     * Sends a fetch request to the property inspector; the property inspector can listen for requests by registering routes.
-     * @template T The type of the response body.
-     * @param requestOrPath The request, or the path of the request.
-     * @param bodyOrUndefined Request body, or moot when constructing the request with {@link MessageRequestOptions}.
-     * @returns The response.
+     * Available from Stream Deck 7.1; determines whether message identifiers should be sent when getting
+     * action-instance or global settings.
+     *
+     * When `true`, the did-receive events associated with settings are only emitted when the action-instance
+     * or global settings are changed in the property inspector.
+     * @returns The value.
      */
-    async fetch(requestOrPath, bodyOrUndefined) {
-        if (typeof requestOrPath === "string") {
-            return this.router.fetch(`${PUBLIC_PATH_PREFIX}${requestOrPath}`, bodyOrUndefined);
-        }
-        else {
-            return this.router.fetch({
-                ...requestOrPath,
-                path: `${PUBLIC_PATH_PREFIX}${requestOrPath.path}`,
+    get useExperimentalMessageIdentifiers() {
+        return __useExperimentalMessageIdentifiers;
+    },
+    /**
+     * Available from Stream Deck 7.1; determines whether message identifiers should be sent when getting
+     * action-instance or global settings.
+     *
+     * When `true`, the did-receive events associated with settings are only emitted when the action-instance
+     * or global settings are changed in the property inspector.
+     */
+    set useExperimentalMessageIdentifiers(value) {
+        requiresVersion(7.1, connection.version, "Message identifiers");
+        __useExperimentalMessageIdentifiers = value;
+    },
+    /**
+     * Gets the global settings associated with the plugin.
+     * @template T The type of global settings associated with the plugin.
+     * @returns Promise containing the plugin's global settings.
+     */
+    getGlobalSettings: () => {
+        return new Promise((resolve) => {
+            connection.once("didReceiveGlobalSettings", (ev) => resolve(ev.payload.settings));
+            connection.send({
+                event: "getGlobalSettings",
+                context: connection.registrationParameters.pluginUUID,
+                id: randomUUID(),
             });
-        }
-    }
+        });
+    },
     /**
-     * Sends the {@link payload} to the property inspector. The plugin can also receive information from the property inspector via {@link streamDeck.ui.onSendToPlugin} and {@link SingletonAction.onSendToPlugin}
-     * allowing for bi-directional communication.
-     * @template T The type of the payload received from the property inspector.
-     * @param payload Payload to send to the property inspector.
-     * @returns `Promise` resolved when {@link payload} has been sent to the property inspector.
+     * Occurs when the global settings are requested, or when the the global settings were updated in
+     * the property inspector.
+     * @template T The type of settings associated with the action.
+     * @param listener Function to be invoked when the event occurs.
+     * @returns A disposable that removes the listener.
      */
-    sendToPropertyInspector(payload) {
-        return connection.send({
-            event: "sendToPropertyInspector",
-            context: this.action.id,
-            payload,
+    onDidReceiveGlobalSettings: (listener) => {
+        return connection.disposableOn("didReceiveGlobalSettings", (ev) => {
+            // Do nothing when the global settings were requested.
+            if (settings.useExperimentalMessageIdentifiers && ev.id) {
+                return;
+            }
+            listener(new DidReceiveGlobalSettingsEvent(ev));
         });
-    }
-}
-
-let current;
-let debounceCount = 0;
-/**
- * Gets the current property inspector.
- * @returns The property inspector; otherwise `undefined`.
- */
-function getCurrentUI() {
-    return current;
-}
-/**
- * Router responsible for communicating with the property inspector.
- */
-const router = new MessageGateway(async (payload) => {
-    const current = getCurrentUI();
-    if (current) {
+    },
+    /**
+     * Occurs when the settings associated with an action instance are requested, or when the the settings
+     * were updated in the property inspector.
+     * @template T The type of settings associated with the action.
+     * @param listener Function to be invoked when the event occurs.
+     * @returns A disposable that removes the listener.
+     */
+    onDidReceiveSettings: (listener) => {
+        return connection.disposableOn("didReceiveSettings", (ev) => {
+            // Do nothing when the action's settings were requested.
+            if (settings.useExperimentalMessageIdentifiers && ev.id) {
+                return;
+            }
+            const action = actionStore.getActionById(ev.context);
+            if (action) {
+                listener(new ActionEvent(action, ev));
+            }
+        });
+    },
+    /**
+     * Sets the global settings associated the plugin; these settings are only available to this plugin,
+     * and should be used to persist information securely.
+     * @param settings Settings to save.
+     * @example
+     * streamDeck.settings.setGlobalSettings({
+     *   apiKey,
+     *   connectedDate: new Date()
+     * })
+     */
+    setGlobalSettings: async (settings) => {
         await connection.send({
-            event: "sendToPropertyInspector",
-            context: current.action.id,
-            payload,
+            event: "setGlobalSettings",
+            context: connection.registrationParameters.pluginUUID,
+            payload: settings,
         });
-        return true;
-    }
-    return false;
-}, (source) => actionStore.getActionById(source.context));
-/**
- * Determines whether the specified event is related to the current tracked property inspector.
- * @param ev The event.
- * @returns `true` when the event is related to the current property inspector.
- */
-function isCurrent(ev) {
-    return (current?.action?.id === ev.context &&
-        current?.action?.manifestId === ev.action &&
-        current?.action?.device?.id === ev.device);
-}
-/*
- * To overcome event races, the debounce counter keeps track of appear vs disappear events, ensuring we only
- * clear the current ui when an equal number of matching disappear events occur.
- */
-connection.on("propertyInspectorDidAppear", (ev) => {
-    if (isCurrent(ev)) {
-        debounceCount++;
-    }
-    else {
-        debounceCount = 1;
-        current = new PropertyInspector(router, ev);
-    }
-});
-connection.on("propertyInspectorDidDisappear", (ev) => {
-    if (isCurrent(ev)) {
-        debounceCount--;
-        if (debounceCount <= 0) {
-            current = undefined;
-        }
-    }
-});
-connection.on("sendToPlugin", (ev) => router.process(ev));
+    },
+};
 
 /**
- * Controller responsible for interacting with the property inspector associated with the plugin.
+ * Controller capable of sending/receiving payloads with the property inspector, and listening for events.
  */
 class UIController {
     /**
-     * Gets the current property inspector.
-     * @returns The property inspector; otherwise `undefined`.
+     * Action associated with the current property inspector.
      */
-    get current() {
-        return getCurrentUI();
+    #action;
+    /**
+     * To overcome event races, the debounce counter keeps track of appear vs disappear events, ensuring
+     * we only clear the current ui when an equal number of matching disappear events occur.
+     */
+    #appearanceStackCount = 0;
+    /**
+     * Initializes a new instance of the {@link UIController} class.
+     */
+    constructor() {
+        // Track the action for the current property inspector.
+        this.onDidAppear((ev) => {
+            if (this.#isCurrent(ev.action)) {
+                this.#appearanceStackCount++;
+            }
+            else {
+                this.#appearanceStackCount = 1;
+                this.#action = ev.action;
+            }
+        });
+        this.onDidDisappear((ev) => {
+            if (this.#isCurrent(ev.action)) {
+                this.#appearanceStackCount--;
+                if (this.#appearanceStackCount <= 0) {
+                    this.#action = undefined;
+                }
+            }
+        });
     }
     /**
-     * Occurs when the property inspector associated with the action becomes visible, i.e. the user selected an action in the Stream Deck application. See also {@link UIController.onDidDisappear}.
+     * Gets the action associated with the current property.
+     * @returns The action; otherwise `undefined` when a property inspector is not visible.
+     */
+    get action() {
+        return this.#action;
+    }
+    /**
+     * Occurs when the property inspector associated with the action becomes visible, i.e. the user
+     * selected an action in the Stream Deck application..
      * @template T The type of settings associated with the action.
      * @param listener Function to be invoked when the event occurs.
      * @returns A disposable that, when disposed, removes the listener.
@@ -7179,7 +6859,8 @@ class UIController {
         });
     }
     /**
-     * Occurs when the property inspector associated with the action becomes destroyed, i.e. the user unselected the action in the Stream Deck application. See also {@link UIController.onDidAppear}.
+     * Occurs when the property inspector associated with the action disappears, i.e. the user unselected
+     * the action in the Stream Deck application.
      * @template T The type of settings associated with the action.
      * @param listener Function to be invoked when the event occurs.
      * @returns A disposable that, when disposed, removes the listener.
@@ -7193,15 +6874,14 @@ class UIController {
         });
     }
     /**
-     * Occurs when a message was sent to the plugin _from_ the property inspector. The plugin can also send messages _to_ the property inspector using {@link UIController.current.sendMessage}
-     * or {@link Action.sendToPropertyInspector}.
+     * Occurs when a message was sent to the plugin _from_ the property inspector.
      * @template TPayload The type of the payload received from the property inspector.
      * @template TSettings The type of settings associated with the action.
      * @param listener Function to be invoked when the event occurs.
      * @returns A disposable that, when disposed, removes the listener.
      */
     onSendToPlugin(listener) {
-        return router.disposableOn("unhandledMessage", (ev) => {
+        return connection.disposableOn("sendToPlugin", (ev) => {
             const action = actionStore.getActionById(ev.context);
             if (action) {
                 listener(new SendToPluginEvent(action, ev));
@@ -7209,21 +6889,28 @@ class UIController {
         });
     }
     /**
-     * Registers the function as a route, exposing it to the property inspector via `streamDeck.plugin.fetch(path)`.
-     * @template TBody The type of the request body.
-     * @template TSettings The type of the action's settings.
-     * @param path Path that identifies the route.
-     * @param handler Handler to be invoked when a matching request is received.
-     * @param options Optional routing configuration.
-     * @returns Disposable capable of removing the route handler.
-     * @example
-     * streamDeck.ui.registerRoute("/toggle-light", async (req, res) => {
-     *   await lightService.toggle(req.body.lightId);
-     *   res.success();
-     * });
+     * Sends the payload to the property inspector; the payload is only sent when the property inspector
+     * is visible for an action provided by this plugin.
+     * @param payload Payload to send.
      */
-    registerRoute(path, handler, options) {
-        return router.route(`${PUBLIC_PATH_PREFIX}${path}`, handler, options);
+    async sendToPropertyInspector(payload) {
+        if (this.#action) {
+            await connection.send({
+                event: "sendToPropertyInspector",
+                context: this.#action.id,
+                payload,
+            });
+        }
+    }
+    /**
+     * Determines whether the specified action is the action for the current property inspector.
+     * @param action Action to check against.
+     * @returns `true` when the actions are the same.
+     */
+    #isCurrent(action) {
+        return (this.#action?.id === action.id &&
+            this.#action?.manifestId === action.manifestId &&
+            this.#action?.device?.id === action.device.id);
     }
 }
 const ui = new UIController();
@@ -7333,30 +7020,32 @@ class ActionContext {
     }
 }
 
+const REQUEST_TIMEOUT = 15 * 1000; // 15s
 /**
  * Provides a contextualized instance of an {@link Action}, allowing for direct communication with the Stream Deck.
  * @template T The type of settings associated with the action.
  */
 class Action extends ActionContext {
     /**
+     * Gets the resources (files) associated with this action; these resources are embedded into the
+     * action when it is exported, either individually, or as part of a profile.
+     *
+     * Available from Stream Deck 7.1.
+     * @returns The resources.
+     */
+    async getResources() {
+        requiresVersion(7.1, connection.version, "getResources");
+        const res = await this.#fetch("getResources", "didReceiveResources");
+        return res.payload.resources;
+    }
+    /**
      * Gets the settings associated this action instance.
-     * @template U The type of settings associated with the action.
+     * @template U The type of settings associated with the action.D
      * @returns Promise containing the action instance's settings.
      */
-    getSettings() {
-        return new Promise((resolve) => {
-            const callback = (ev) => {
-                if (ev.context == this.id) {
-                    resolve(ev.payload.settings);
-                    connection.removeListener("didReceiveSettings", callback);
-                }
-            };
-            connection.on("didReceiveSettings", callback);
-            connection.send({
-                event: "getSettings",
-                context: this.id,
-            });
-        });
+    async getSettings() {
+        const res = await this.#fetch("getSettings", "didReceiveSettings");
+        return res.payload.settings;
     }
     /**
      * Determines whether this instance is a dial.
@@ -7371,6 +7060,27 @@ class Action extends ActionContext {
      */
     isKey() {
         return this.controllerType === "Keypad";
+    }
+    /**
+     * Sets the resources (files) associated with this action; these resources are embedded into the
+     * action when it is exported, either individually, or as part of a profile.
+     *
+     * Available from Stream Deck 7.1.
+     * @example
+     * action.setResources({
+     *   fileOne: "c:\\hello-world.txt",
+     *   anotherFile: "c:\\icon.png"
+     * });
+     * @param resources The resources as a map of file paths.
+     * @returns `Promise` resolved when the resources are saved to Stream Deck.
+     */
+    setResources(resources) {
+        requiresVersion(7.1, connection.version, "setResources");
+        return connection.send({
+            event: "setResources",
+            context: this.id,
+            payload: resources,
+        });
     }
     /**
      * Sets the {@link settings} associated with this action instance. Use in conjunction with {@link Action.getSettings}.
@@ -7393,6 +7103,36 @@ class Action extends ActionContext {
             event: "showAlert",
             context: this.id,
         });
+    }
+    /**
+     * Fetches information from Stream Deck by sending the command, and awaiting the event.
+     * @param command Name of the event (command) to send.
+     * @param event Name of the event to await.
+     * @returns The payload from the received event.
+     */
+    async #fetch(command, event) {
+        const { resolve, reject, promise } = withResolvers();
+        // Set a timeout to prevent endless awaiting.
+        const timeoutId = setTimeout(() => {
+            listener.dispose();
+            reject("The request timed out");
+        }, REQUEST_TIMEOUT);
+        // Listen for an event that can resolve the request.
+        const listener = connection.disposableOn(event, (ev) => {
+            // Make sure the received event is for this action.
+            if (ev.context == this.id) {
+                clearTimeout(timeoutId);
+                listener.dispose();
+                resolve(ev);
+            }
+        });
+        // Send the request; specifying an id signifies its a request.
+        await connection.send({
+            event: command,
+            context: this.id,
+            id: randomUUID(),
+        });
+        return promise;
     }
 }
 
@@ -7682,6 +7422,23 @@ class ActionService extends ReadOnlyActionStore {
         });
     }
     /**
+     * Occurs when the resources were updated within the property inspector.
+     * @param listener Function to be invoked when the event occurs.
+     * @returns A disposable that, when disposed, removes the listener.
+     */
+    onDidReceiveResources(listener) {
+        return connection.disposableOn("didReceiveResources", (ev) => {
+            // When the id is defined, the resources were requested, so we don't propagate the event.
+            if (ev.id !== undefined) {
+                return;
+            }
+            const action = actionStore.getActionById(ev.context);
+            if (action) {
+                listener(new ActionEvent(action, ev));
+            }
+        });
+    }
+    /**
      * Occurs when the user presses a action down.
      * @template T The type of settings associated with the action.
      * @param listener Function to be invoked when the event occurs.
@@ -7779,7 +7536,7 @@ class ActionService extends ReadOnlyActionStore {
         if (action.manifestId === undefined) {
             throw new Error("The action's manifestId cannot be undefined.");
         }
-        if (!manifest.value.Actions.some((a) => a.UUID === action.manifestId)) {
+        if (manifest.value !== null && !manifest.value.Actions.some((a) => a.UUID === action.manifestId)) {
             throw new Error(`The action's manifestId was not found within the manifest: ${action.manifestId}`);
         }
         // Routes an event to the action, when the applicable listener is defined on the action.
@@ -7800,7 +7557,8 @@ class ActionService extends ReadOnlyActionStore {
         route(this.onDialUp, action.onDialUp);
         route(this.onDialRotate, action.onDialRotate);
         route(ui.onSendToPlugin, action.onSendToPlugin);
-        route(onDidReceiveSettings, action.onDidReceiveSettings);
+        route(this.onDidReceiveResources, action.onDidReceiveResources);
+        route(settings.onDidReceiveSettings, action.onDidReceiveSettings);
         route(this.onKeyDown, action.onKeyDown);
         route(this.onKeyUp, action.onKeyUp);
         route(ui.onDidAppear, action.onPropertyInspectorDidAppear);
@@ -7815,28 +7573,6 @@ class ActionService extends ReadOnlyActionStore {
  * Service for interacting with Stream Deck actions.
  */
 const actionService = new ActionService();
-
-/**
- * Validates the {@link streamDeckVersion} and manifest's `Software.MinimumVersion` are at least the {@link minimumVersion}; when the version is not fulfilled, an error is thrown with the
- * {@link feature} formatted into the message.
- * @param minimumVersion Minimum required version.
- * @param streamDeckVersion Actual application version.
- * @param feature Feature that requires the version.
- */
-function requiresVersion(minimumVersion, streamDeckVersion, feature) {
-    const required = {
-        major: Math.floor(minimumVersion),
-        minor: Number(minimumVersion.toString().split(".").at(1) ?? 0), // Account for JavaScript's floating point precision.
-        patch: 0,
-        build: 0,
-    };
-    if (streamDeckVersion.compareTo(required) === -1) {
-        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher, but current version is ${streamDeckVersion.major}.${streamDeckVersion.minor}; please update Stream Deck and the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
-    }
-    else if (getSoftwareMinimumVersion().compareTo(required) === -1) {
-        throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires Stream Deck version ${required.major}.${required.minor} or higher; please update the "Software.MinimumVersion" in the plugin's manifest to "${required.major}.${required.minor}" or higher.`);
-    }
-}
 
 /**
  * Provides information about a device.
@@ -8000,16 +7736,18 @@ function fileSystemLocaleProvider(language) {
         return null;
     }
 }
-
 /**
- * Collection of error codes.
+ * Parses the localizations from the specified contents, or throws a `TypeError` when unsuccessful.
+ * @param contents Contents that represent the stringified JSON containing the localizations.
+ * @returns The localizations; otherwise a `TypeError`.
  */
-const errorCode = {
-    /**
-     * Indicates the current Node.js SDK is not compatible with the SDK Version specified within the manifest.
-     */
-    incompatibleSdkVersion: 652025,
-};
+function parseLocalizations(contents) {
+    const json = JSON.parse(contents);
+    if (json !== undefined && json !== null && typeof json === "object" && "Localization" in json) {
+        return json["Localization"];
+    }
+    throw new TypeError(`Translations must be a JSON object nested under a property named "Localization"`);
+}
 
 /**
  * Requests the Stream Deck switches the current profile of the specified {@link deviceId} to the {@link profile}; when no {@link profile} is provided the previously active profile
@@ -8091,9 +7829,25 @@ function openUrl(url) {
         },
     });
 }
+/**
+ * Gets the secrets associated with the plugin.
+ * @returns `Promise` resolved with the secrets associated with the plugin.
+ */
+function getSecrets() {
+    requiresVersion(6.9, connection.version, "Secrets");
+    requiresSDKVersion(3, "Secrets");
+    return new Promise((resolve) => {
+        connection.once("didReceiveSecrets", (ev) => resolve(ev.payload.secrets));
+        connection.send({
+            event: "getSecrets",
+            context: connection.registrationParameters.pluginUUID,
+        });
+    });
+}
 
 var system = /*#__PURE__*/Object.freeze({
     __proto__: null,
+    getSecrets: getSecrets,
     onApplicationDidLaunch: onApplicationDidLaunch,
     onApplicationDidTerminate: onApplicationDidTerminate,
     onDidReceiveDeepLink: onDidReceiveDeepLink,
@@ -8175,13 +7929,6 @@ const streamDeck = {
         return logger;
     },
     /**
-     * Manifest associated with the plugin, as defined within the `manifest.json` file.
-     * @returns The manifest.
-     */
-    get manifest() {
-        return getManifest();
-    },
-    /**
      * Namespace for Stream Deck profiles.
      * @returns Profiles namespace.
      */
@@ -8217,14 +7964,6 @@ const streamDeck = {
         return connection.connect();
     },
 };
-registerCreateLogEntryRoute(router, logger);
-/**
- * Validate compatibility with manifest `SDKVersion`.
- */
-if (streamDeck.manifest.SDKVersion >= 3) {
-    logger.error("[ERR_NOT_SUPPORTED]: Manifest SDKVersion 3 requires @elgato/streamdeck 2.0 or higher.");
-    process.exit(errorCode.incompatibleSdkVersion);
-}
 
 /******************************************************************************
 Copyright (c) Microsoft Corporation.
@@ -9927,7 +9666,7 @@ let TarkovCurrentMapInfo_Boss_Sixteenth = (() => {
 })();
 
 /*
-streamDeck.logger.setLevel(LogLevel.TRACE);
+streamDeck.logger.setLevel("trace");
 */
 streamDeck.actions.registerAction(new TarkovTime());
 streamDeck.actions.registerAction(new TarkovGoonsLocation());

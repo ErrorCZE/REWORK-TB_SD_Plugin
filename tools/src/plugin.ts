@@ -1,4 +1,4 @@
-import streamDeck, { LogLevel } from "@elgato/streamdeck";
+import streamDeck from "@elgato/streamdeck";
 
 import { TarkovTime } from "./actions/tarkov-time";
 import { TarkovGoonsLocation } from "./actions/goons-location";
@@ -12,7 +12,7 @@ import { TarkovCurrentMapInfo_CurrentServer } from "./actions/current-map-server
 import { TarkovCurrentServerInfo } from "./actions/current-server";
 
 
-import { 
+import {
     TarkovCurrentMapInfo_Boss_First,
     TarkovCurrentMapInfo_Boss_Second,
     TarkovCurrentMapInfo_Boss_Third,
@@ -33,7 +33,7 @@ import {
 
 
 /* 
-streamDeck.logger.setLevel(LogLevel.TRACE);
+streamDeck.logger.setLevel("trace");
 */
 
 

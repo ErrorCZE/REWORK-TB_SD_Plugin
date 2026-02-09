@@ -7,7 +7,10 @@
 	"Icon": "assets/categoryicon",
 	"CodePath": "bin/plugin.js",
 	"Description": "Tools designed for Escape from Tarkov streamers and regular players. For example Goons Tracker, Trader Restocks and more.",
-	"SDKVersion": 2,
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "6.9"
+	},
 	"Actions": [
 		{
 			"Name": "GoonsTracker - Latest Report",
@@ -563,9 +566,6 @@
 			"DontAutoSwitchWhenInstalled": true
 		}
 	],
-	"Software": {
-		"MinimumVersion": "6.4"
-	},
 	"OS": [
 		{
 			"Platform": "mac",
