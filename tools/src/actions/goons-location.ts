@@ -82,6 +82,9 @@ export class TarkovGoonsLocation extends SingletonAction {
         if (ev.payload === 'openWebsite') {
             streamDeck.system.openUrl('https://tarkovbot.eu/stream-deck');
         }
+        if (ev.payload === 'openPatreon') {
+            streamDeck.system.openUrl('https://patreon.com/tarkovboteu');
+        }
     }
 }
 

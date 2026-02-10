@@ -114,6 +114,10 @@ export class TarkovCurrentServerInfo extends SingletonAction {
         const payload = ev.payload as any;
         streamDeck.logger.info("onSendToPlugin received:", JSON.stringify(payload));
 
+        if (ev.payload === 'openPatreon') {
+            streamDeck.system.openUrl('https://patreon.com/tarkovboteu');
+        }
+
         if (payload.command === "autoDetectPath") {
             streamDeck.logger.info("Starting auto-detect path...");
             const result = await detectEftPath();

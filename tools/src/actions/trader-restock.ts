@@ -4,7 +4,7 @@ import {
     WillAppearEvent,
     DidReceiveSettingsEvent,
     WillDisappearEvent,
-    JsonObject
+    SendToPluginEvent,
 } from "@elgato/streamdeck";
 
 
@@ -13,7 +13,7 @@ interface TraderData {
     resetTime: string;
 }
 
-interface TraderSettings extends JsonObject {
+interface TraderSettings {
     selectedTrader?: string;
     pve_traders_mode_check?: boolean;
 }
@@ -161,5 +161,11 @@ export class TarkovTraderRestock extends SingletonAction {
 
         ev.action.setImage(`assets/${settings.selectedTrader}.png`);
         this.startUpdating(ev.action, settings, actionId);
+    }
+
+    override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, LaunchSettings>): void | Promise<void> {
+        if (ev.payload === 'openPatreon') {
+            streamDeck.system.openUrl('https://patreon.com/tarkovboteu');
+        }
     }
 }
